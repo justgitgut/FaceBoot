@@ -44,10 +44,12 @@
   const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
   const feedCleanupDependentRows = Array.from(document.querySelectorAll('[data-parent-toggle="enableFeedFilter"]'));
   const applyButton = document.getElementById("applyButton");
+  const donateButton = document.getElementById("donateButton");
   const status = document.getElementById("status");
   const statElements = new Map();
   let clearStatusTimer = null;
   let isDirty = false;
+  const DONATE_URL = "https://www.buymeacoffee.com/pinkerton";
 
   function createStatCard(label, options = {}) {
     const item = document.createElement("div");
@@ -297,6 +299,14 @@
   applyButton.addEventListener("click", () => {
     applySettings().catch(() => showStatus("Apply failed.", "error"));
   });
+
+  if (donateButton) {
+    donateButton.addEventListener("click", () => {
+      chrome.tabs.create({ url: DONATE_URL }).catch(() => {
+        showStatus("Could not open support page.", "error");
+      });
+    });
+  }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "local") {

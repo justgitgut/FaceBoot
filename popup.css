@@ -109,9 +109,10 @@ body {
 }
 
 .fb-header-text p {
-  font-size: 0.7rem;
+  font-size: 0.63rem;
   color: #c8d8f8;
   margin-top: 2px;
+  white-space: nowrap;
 }
 
 /* ── Body ──────────────────────────────────────────────── */
@@ -431,6 +432,12 @@ body {
   color: var(--fb-muted);
 }
 
+.fb-about-support {
+  font-size: 0.71rem;
+  line-height: 1.45;
+  color: #6c7481;
+}
+
 .fb-btn {
   background: linear-gradient(180deg, #4c69ba 0%, var(--fb-blue) 100%);
   color: #fff;
@@ -486,6 +493,24 @@ body {
   color: rgba(255, 255, 255, 0.38);
   box-shadow: none;
   cursor: default;
+}
+
+.fb-btn.fb-btn--donate {
+  width: auto;
+  min-width: 210px;
+  padding: 9px 18px;
+  border-radius: 999px;
+  border-color: #405fd3;
+  background: linear-gradient(180deg, #6f8cff 0%, #5f7fff 100%);
+  box-shadow: 0 3px 10px rgba(95, 127, 255, 0.28);
+}
+
+.fb-btn.fb-btn--donate:hover:not(:disabled) {
+  filter: brightness(1.05);
+}
+
+.fb-btn.fb-btn--donate:active:not(:disabled) {
+  filter: brightness(0.97);
 }
 
 /* ── Status bar ────────────────────────────────────────── */
