@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FaceBoot Privacy Policy</title>
+    <meta name="description" content="Privacy Policy for the FaceBoot Chrome extension." />
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f4f7fb;
+        --surface: #ffffff;
+        --text: #17202c;
+        --muted: #576273;
+        --accent: #1877f2;
+        --border: #d7dfeb;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        background: linear-gradient(180deg, #ebf2ff 0%, var(--bg) 100%);
+        color: var(--text);
+      }
+
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 44px 20px 80px;
+      }
+
+      article {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 20px;
+        padding: 32px;
+        box-shadow: 0 22px 56px rgba(21, 41, 79, 0.08);
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 2.1rem;
+      }
+
+      h2 {
+        margin-top: 28px;
+        font-size: 1.15rem;
+      }
+
+      p,
+      li {
+        line-height: 1.65;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      a {
+        color: var(--accent);
+        text-decoration: none;
+      }
+
+      a:hover,
+      a:focus-visible {
+        text-decoration: underline;
+      }
+
+      ul {
+        padding-left: 22px;
+      }
+
+      code {
+        font-family: Consolas, "Courier New", monospace;
+        background: #f0f4fa;
+        padding: 0.12rem 0.35rem;
+        border-radius: 6px;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <article>
+        <h1>Privacy Policy for FaceBoot</h1>
+        <p class="muted">Last updated: March 12, 2026</p>
+
+        <p>FaceBoot does not sell personal data, does not send browsing data to any server, and does not use analytics, ads, or remote code.</p>
+
+        <h2>What FaceBoot accesses</h2>
+        <p>FaceBoot runs only on:</p>
+        <ul>
+          <li><code>https://www.facebook.com/*</code></li>
+          <li><code>https://web.facebook.com/*</code></li>
+        </ul>
+        <p>It reads page content on those domains in order to:</p>
+        <ul>
+          <li>hide feed modules such as Reels, sponsored posts, and People You May Know</li>
+          <li>expand truncated posts and comment threads</li>
+          <li>provide optional anti-refresh protection</li>
+          <li>optionally redirect Facebook tabs to the All Feed view</li>
+        </ul>
+
+        <h2>What data FaceBoot stores</h2>
+        <p>FaceBoot stores extension settings and local activity counters using Chrome extension storage:</p>
+        <ul>
+          <li><code>chrome.storage.sync</code> for settings, when available</li>
+          <li><code>chrome.storage.local</code> for settings fallback and activity stats</li>
+        </ul>
+        <p>Stored data is limited to:</p>
+        <ul>
+          <li>on/off feature preferences</li>
+          <li>aggregate counters such as removed items, expanded posts, expanded comment actions, and prevented refreshes</li>
+        </ul>
+        <p>FaceBoot does not intentionally store:</p>
+        <ul>
+          <li>Facebook account credentials</li>
+          <li>message contents</li>
+          <li>post contents</li>
+          <li>comment contents</li>
+          <li>browsing history outside Facebook</li>
+          <li>personally identifying analytics</li>
+        </ul>
+
+        <h2>What data FaceBoot transmits</h2>
+        <p>FaceBoot does not transmit collected data to the developer or to third parties. All processing happens locally in the browser.</p>
+
+        <h2>Third-party services</h2>
+        <p>FaceBoot does not use third-party analytics, ad networks, trackers, or external APIs.</p>
+
+        <h2>Data retention</h2>
+        <p>Data remains in your browser storage until you:</p>
+        <ul>
+          <li>change or clear the extension settings</li>
+          <li>clear extension storage through Chrome</li>
+          <li>uninstall the extension</li>
+        </ul>
+        <p>Session activity counters reset when the relevant page context is reloaded. Aggregate counters persist in local storage until cleared or the extension is removed.</p>
+
+        <h2>Your choices</h2>
+        <p>You can:</p>
+        <ul>
+          <li>disable individual features from the extension popup</li>
+          <li>remove the extension at any time in <code>chrome://extensions</code></li>
+          <li>clear Chrome extension storage by removing the extension</li>
+        </ul>
+
+        <h2>Contact</h2>
+        <p>Replace this section with your public support contact or repository issue URL before publication if you want the privacy page to include direct contact details.</p>
+      </article>
+    </main>
+  </body>
+</html>
