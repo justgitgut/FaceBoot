@@ -115,6 +115,13 @@ body {
   white-space: nowrap;
 }
 
+.fb-version {
+  font-size: 0.58rem;
+  color: #eef3ff;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
 /* ── Body ──────────────────────────────────────────────── */
 .fb-body {
   padding: 8px;

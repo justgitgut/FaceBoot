@@ -23,6 +23,10 @@ $stageDir = Join-Path $distDir "package"
 $includePaths = @(
   "manifest.json",
   "background.js",
+  "content-utils.js",
+  "content-debug.js",
+  "content-feed.js",
+  "content-comments.js",
   "content.js",
   "injected.js",
   "shared-stats.js",

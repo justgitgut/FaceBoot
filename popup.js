@@ -46,10 +46,20 @@
   const applyButton = document.getElementById("applyButton");
   const donateButton = document.getElementById("donateButton");
   const status = document.getElementById("status");
+  const extensionVersion = document.getElementById("extensionVersion");
   const statElements = new Map();
   let clearStatusTimer = null;
   let isDirty = false;
   const DONATE_URL = "https://www.buymeacoffee.com/pinkerton";
+
+  function renderExtensionVersion() {
+    if (!extensionVersion) {
+      return;
+    }
+
+    const manifestVersion = chrome.runtime?.getManifest?.()?.version;
+    extensionVersion.textContent = manifestVersion ? `v${manifestVersion}` : "";
+  }
 
   function createStatCard(label, options = {}) {
     const item = document.createElement("div");
@@ -330,6 +340,7 @@
 
   buildStatsGrid();
   setActiveTab("settingsPanel");
+  renderExtensionVersion();
 
   loadSettings()
     .then(() => {
