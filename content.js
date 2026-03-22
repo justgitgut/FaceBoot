@@ -78,6 +78,10 @@
     return contentComments.isDirectPostPage();
   }
 
+  function isMediaViewerPage() {
+    return contentComments.isMediaViewerPage();
+  }
+
   function getVisiblePostDialog(root = document) {
     return contentComments.getVisiblePostDialog(root);
   }
@@ -88,6 +92,29 @@
 
   function hasCommentSurfaceSignals(surface) {
     return contentComments.hasCommentSurfaceSignals(surface);
+  }
+
+  function getDirectPageExpansionRoot(root = document) {
+    const scopeElement = root instanceof Element ? root : document.body;
+    const selectors = isMediaViewerPage()
+      ? ['[role="complementary"]', 'div[role="article"]', '[data-pagelet]', 'main', '[role="main"]']
+      : ['div[role="article"]', '[data-pagelet]', 'main', '[role="main"]'];
+
+    for (const selector of selectors) {
+      const scopedMatch = scopeElement instanceof Element
+        ? scopeElement.closest(selector) || scopeElement.querySelector?.(selector)
+        : null;
+      if (scopedMatch instanceof Element && isVisible(scopedMatch)) {
+        return scopedMatch;
+      }
+
+      const documentMatch = document.querySelector(selector);
+      if (documentMatch instanceof Element && isVisible(documentMatch)) {
+        return documentMatch;
+      }
+    }
+
+    return root;
   }
 
   function runCommentAutomation(root = document) {
@@ -495,6 +522,12 @@
         expandPostBodies(visibleDialog);
         runCommentAutomation(visibleDialog);
       }
+      return;
+    }
+
+    if (isDirectPostPage() || isMediaViewerPage()) {
+      expandPostBodies(getDirectPageExpansionRoot(root));
+      scheduleCommentAutomationPasses(document);
       return;
     }
 

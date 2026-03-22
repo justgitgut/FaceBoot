@@ -42,8 +42,8 @@
     }
   }
 
-  function watchDialogMutations(dialog, callback, options = {}) {
-    if (!(dialog instanceof Element) || !document.contains(dialog)) {
+  function watchSurfaceMutations(surface, callback, options = {}) {
+    if (!(surface instanceof Element) || !document.contains(surface)) {
       return null;
     }
 
@@ -71,16 +71,16 @@
 
       rafId = requestAnimationFrame(() => {
         rafId = 0;
-        if (done || !document.contains(dialog)) {
+        if (done || !document.contains(surface)) {
           stop();
           return;
         }
-        callback(dialog);
+        callback(surface);
       });
     }
 
     const observer = new MutationObserver(schedule);
-    observer.observe(dialog, {
+    observer.observe(surface, {
       childList: true,
       subtree: true,
       attributes: true,
@@ -156,6 +156,30 @@
     return /\/photo\/|\/watch\//i.test(path);
   }
 
+  function isDirectPageCommentSurface(surface) {
+    if (!(surface instanceof Element) || !isVisible(surface)) {
+      return false;
+    }
+
+    if (isMediaViewerPage()) {
+      if (!surface.matches('[role="complementary"], div[role="article"], [data-pagelet], main, [role="main"]')) {
+        return false;
+      }
+
+      return hasCommentSurfaceSignals(surface);
+    }
+
+    if (!isDirectPostPage()) {
+      return false;
+    }
+
+    if (!surface.matches('div[role="article"], [data-pagelet], main, [role="main"]')) {
+      return false;
+    }
+
+    return hasCommentSurfaceSignals(surface);
+  }
+
   function isMediaViewerSurface(surface) {
     if (!(surface instanceof Element) || !surface.matches('[role="dialog"]')) {
       return false;
@@ -218,14 +242,22 @@
       scopedDialog &&
       isVisible(scopedDialog) &&
       !isIgnoredDialog(scopedDialog) &&
-      !isMediaViewerSurface(scopedDialog)
+      (!isMediaViewerSurface(scopedDialog) || hasCommentSurfaceSignals(scopedDialog))
     ) {
       return scopedDialog;
     }
 
     const dialogs = [...document.querySelectorAll('[role="dialog"]')].reverse();
     return dialogs.find((dialog) => {
-      return isVisible(dialog) && !isIgnoredDialog(dialog) && !isMediaViewerSurface(dialog);
+      if (!isVisible(dialog) || isIgnoredDialog(dialog)) {
+        return false;
+      }
+      if (!isMediaViewerSurface(dialog)) {
+        return true;
+      }
+      /* Allow media viewer dialogs that also contain comment UI
+         (e.g. photo lightbox with an inline comment section). */
+      return hasCommentSurfaceSignals(dialog);
     }) || null;
   }
 
@@ -798,8 +830,8 @@
     }, delay);
   }
 
-    /* Full filter flow for the active post dialog:
-      1. Find the sorter toggle in the current dialog only.
+    /* Full filter flow for the active comment surface:
+      1. Find the sorter toggle in the resolved surface only.
       2. Exit immediately if the toggle already reads All comments.
       3. If the popup is already open, select All comments from that popup.
       4. Otherwise open the toggle once and schedule one short follow-up pass.
@@ -809,7 +841,7 @@
       those were only compensating for incorrect item matching and wrong click targets.
       If behavior regresses, prefer fixing popup/menu detection before adding retries. */
     function ensureAllCommentsFilter(surface) {
-    if (!(surface instanceof Element) || !surface.matches('[role="dialog"]')) {
+    if (!(surface instanceof Element)) {
       return "unavailable";
     }
 
@@ -903,8 +935,9 @@
 
     const seenSurfaces = new Set();
     const candidates = [];
-    const surfaceSelector = '[role="dialog"], div[role="article"], [data-pagelet], main, [role="main"]';
+    const surfaceSelector = '[role="dialog"], div[role="article"], [data-pagelet], main, [role="main"], [role="complementary"]';
     const onDirectPostPage = isDirectPostPage();
+    const onMediaViewerPage = isMediaViewerPage();
 
     function addCandidate(surface, bias = 0) {
       if (!(surface instanceof Element) || !isVisible(surface) || seenSurfaces.has(surface)) {
@@ -912,6 +945,10 @@
       }
 
       if (isMediaViewerSurface(surface)) {
+        return;
+      }
+
+      if (surface.matches('[role="complementary"]') && !isDirectPageCommentSurface(surface)) {
         return;
       }
 
@@ -999,6 +1036,10 @@
         score -= 25;
       }
 
+      if (isDirectPageCommentSurface(surface)) {
+        score += 120;
+      }
+
       if (isLeafCommentArticle) {
         score -= 140;
       }
@@ -1025,6 +1066,10 @@
 
     document.querySelectorAll('[role="dialog"]').forEach((dialog) => addCandidate(dialog, 10));
 
+    if (onMediaViewerPage) {
+      document.querySelectorAll('[role="complementary"]').forEach((comp) => addCandidate(comp, 10));
+    }
+
     document
       .querySelectorAll('[role="button"][aria-haspopup="menu"]')
       .forEach((toggle) => addCandidate(toggle.closest(surfaceSelector), 55));
@@ -1050,7 +1095,7 @@
       return false;
     }
 
-    if (isMediaViewerSurface(surface) || isMediaViewerPage()) {
+    if (isMediaViewerSurface(surface) && !hasCommentSurfaceSignals(surface)) {
       return false;
     }
 
@@ -1058,7 +1103,7 @@
       return hasPostDialogSignals(surface);
     }
 
-    if (isDirectPostPage()) {
+    if (isDirectPageCommentSurface(surface)) {
       return true;
     }
 
@@ -1399,13 +1444,15 @@
         return scopedDialog;
       }
 
-      const resolvedSurface = null;
+      const resolvedSurface = getCommentSurface(root);
       debugCommentAutomation("resolve-root-from-element", {
         source: describeElement(root),
         resolved: describeElement(resolvedSurface),
-        allowInlineSurface: false
+        canAutomateSurface: resolvedSurface ? canAutomateCommentSurface(resolvedSurface) : false
       });
-      return resolvedSurface;
+      if (resolvedSurface && canAutomateCommentSurface(resolvedSurface)) {
+        return resolvedSurface;
+      }
     }
 
     const visibleDialog = getVisiblePostDialog(document);
@@ -1417,21 +1464,22 @@
       return visibleDialog;
     }
 
+    const resolvedSurface = getCommentSurface(document);
+    if (resolvedSurface && canAutomateCommentSurface(resolvedSurface)) {
+      debugCommentAutomation("resolve-root-page-surface", {
+        resolved: describeElement(resolvedSurface)
+      });
+      return resolvedSurface;
+    }
+
     debugCommentAutomation("resolve-root-none", {
-      directPost: false
+      directPost: isDirectPostPage() || isMediaViewerPage()
     });
 
     return null;
   }
 
   function runCommentAutomation(root = document, deps = {}) {
-    if (isMediaViewerPage()) {
-      debugCommentAutomation("run-automation-skip", {
-        reason: "media-viewer"
-      });
-      return false;
-    }
-
     const target = getActiveCommentAutomationRoot(root);
     if (!target) {
       debugCommentAutomation("run-automation-skip", {
@@ -1442,7 +1490,7 @@
 
     debugCommentAutomation("run-automation", {
       target: describeElement(target),
-      directPost: false
+      directPost: isDirectPostPage() || isMediaViewerPage()
     });
 
     const filterState = getCommentFilterState(target);
@@ -1462,7 +1510,7 @@
       target: describeElement(target),
       filterResult
     });
-    if (filterResult === "pending" || filterResult === "selected") {
+    if (filterResult === "pending") {
       return true;
     }
 
@@ -1490,7 +1538,7 @@
       return;
     }
 
-    const watcher = watchDialogMutations(target, () => {
+    const watcher = watchSurfaceMutations(target, () => {
       runCommentAutomation(root, deps);
     }, { maxDuration: 6000 });
 
@@ -1536,7 +1584,7 @@
 
     const expansionState = getCommentExpansionState(activeDialog);
     const now = Date.now();
-    const onDirectPostPage = false;
+    const onDirectPostPage = isDirectPostPage() || isMediaViewerPage();
     const isDialogSurface = activeDialog.matches('[role="dialog"]');
 
     function getCommentExpanderKind(control) {
@@ -1605,7 +1653,7 @@
     }
 
     function hasCommentContext(control) {
-      const host = control.closest('[role="dialog"], div[role="article"], [data-pagelet], main, [role="main"]') || document;
+      const host = control.closest('[role="dialog"], div[role="article"], [data-pagelet], main, [role="main"], [role="complementary"]') || document;
       const hasComposer = hasVisibleCommentComposer(host);
       const nestedArticleCount = host.querySelectorAll('div[role="article"]').length;
       const hasDiscussionRegion = !!host.querySelector('[role="list"], [role="feed"], [aria-live]');
@@ -1725,10 +1773,6 @@
         return true;
       }
 
-      if (control.querySelector("svg, img, video")) {
-        return false;
-      }
-
       if (!inCommentThread && !isCommentSummaryControl && !isLoadMoreCommentControl) {
         return false;
       }
@@ -1739,6 +1783,13 @@
 
       if (isCommentSummaryControl || isLoadMoreCommentControl) {
         return true;
+      }
+
+      /* Only reject icon-only buttons for "other" kind controls. Verified comment
+         expanders (summary/loadMore) often contain a decorative SVG chevron alongside
+         their text and should not be blocked by this check. */
+      if (control.querySelector("svg, img, video")) {
+        return false;
       }
 
       const hasNumericHint = /\d/.test(text);
@@ -1860,7 +1911,7 @@
     }
 
     if (!activeExpansionWatchers.has(activeDialog)) {
-      const watcher = watchDialogMutations(activeDialog, () => {
+      const watcher = watchSurfaceMutations(activeDialog, () => {
         runCommentAutomation(activeDialog, deps);
       }, { maxDuration: expansionCooldown + 2000 });
 
@@ -1876,6 +1927,7 @@
 
   globalThis.FaceBootCommentsRuntime = Object.freeze({
     isDirectPostPage,
+    isMediaViewerPage,
     getVisiblePostDialog,
     hasPostDialogSignals,
     hasCommentSurfaceSignals,
