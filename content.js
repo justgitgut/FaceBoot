@@ -41,13 +41,19 @@
     sessionExpandedPosts: 0,
     sessionExpandedComments: 0
   };
+  const STARTUP_STABILIZATION_DELAYS_MS = [120, 400, 1200];
+  const POST_EXPANDER_MAX_ATTEMPTS = 4;
+  const POST_EXPANDER_RETRY_COOLDOWN_MS = 250;
   const getSessionStatKey = sharedStats.toSessionKey || ((statKey) => `session${statKey.charAt(0).toUpperCase()}${statKey.slice(1)}`);
   let settings = { ...DEFAULT_SETTINGS };
   let antiRefreshInjected = false;
   let statsFlushTimer = null;
   let extensionContextValid = true;
   const pendingStatIncrements = {};
-  const clickedPostExpanders = new WeakSet();
+  /* Facebook may render a valid See more button before its live click handler is
+     attached. Track bounded retries instead of permanently suppressing the first
+     no-op press during startup hydration. */
+  const postExpanderAttemptState = new WeakMap();
   let lastObservedUrl = window.location.href;
   const contentUtils = globalThis.FaceBootContentUtils;
   if (!contentUtils) {
@@ -84,6 +90,10 @@
 
   function getVisiblePostDialog(root = document) {
     return contentComments.getVisiblePostDialog(root);
+  }
+
+  function getBlockingMediaViewerOverlay() {
+    return contentComments.getBlockingMediaViewerOverlay?.() || null;
   }
 
   function hasPostDialogSignals(surface) {
@@ -129,12 +139,13 @@
     return contentFeed.runFeedCleanup(root, runtimeDeps);
   }
 
-    /* Mutation-driven scheduling infrastructure.
-      Instead of hardcoded setTimeout delays, we watch for actual DOM
-      mutations and react as soon as changes land. */
+  /* Mutation-driven scheduling infrastructure.
+     Instead of hardcoded setTimeout delays, we watch for actual DOM
+     mutations and react as soon as changes land. */
   let pendingRunAllFrame = 0;
   let pendingAutomationFrame = 0;
   let pendingRunAllRoot = null;
+  let startupPassTimeouts = [];
 
   function debouncedRunAll(root = document) {
     if (root instanceof Element) {
@@ -157,6 +168,21 @@
     pendingAutomationFrame = requestAnimationFrame(() => {
       pendingAutomationFrame = 0;
       runCommentAutomation(document);
+    });
+  }
+
+  function scheduleStartupStabilizationPasses() {
+    startupPassTimeouts.forEach((timeoutId) => window.clearTimeout(timeoutId));
+    startupPassTimeouts = [];
+
+    STARTUP_STABILIZATION_DELAYS_MS.forEach((delay) => {
+      const timeoutId = window.setTimeout(() => {
+        startupPassTimeouts = startupPassTimeouts.filter((value) => value !== timeoutId);
+        if (document.visibilityState === "visible") {
+          debouncedRunAll(document);
+        }
+      }, delay);
+      startupPassTimeouts.push(timeoutId);
     });
   }
 
@@ -340,6 +366,50 @@
     let priorityClicksThisRun = 0;
     let genericClicksThisRun = 0;
 
+    function getPostExpanderAttemptState(button) {
+      return postExpanderAttemptState.get(button) || { attempts: 0, lastAttemptAt: 0 };
+    }
+
+    function canAttemptPostExpander(button) {
+      const { attempts, lastAttemptAt } = getPostExpanderAttemptState(button);
+      if (attempts === 0) {
+        return true;
+      }
+
+      if (attempts >= POST_EXPANDER_MAX_ATTEMPTS) {
+        return false;
+      }
+
+      return (Date.now() - lastAttemptAt) >= POST_EXPANDER_RETRY_COOLDOWN_MS;
+    }
+
+    function markPostExpanderAttempt(button) {
+      const { attempts } = getPostExpanderAttemptState(button);
+      postExpanderAttemptState.set(button, {
+        attempts: attempts + 1,
+        lastAttemptAt: Date.now()
+      });
+    }
+
+    function hasInlineSeeMoreLabel(button, normalizedButtonText = "") {
+      if (!(button instanceof Element)) {
+        return false;
+      }
+
+      const storyContainer = button.closest('[data-ad-rendering-role="story_message"], [data-ad-rendering-role="story_body"], [data-ad-comet-preview="message"]');
+      if (!storyContainer) {
+        return false;
+      }
+
+      const inlineTextContainer = button.parentElement;
+      const inlineText = normalizeText(inlineTextContainer?.textContent || normalizedButtonText);
+      if (!inlineText || !/(?:^|[\s.,!?;:()\[\]{}])see more(?=$|[\s.,!?;:()\[\]{}…])/iu.test(inlineText)) {
+        return false;
+      }
+
+      return inlineText.includes("...") || inlineText.includes("…") || /line-clamp|webkit-box/i.test(inlineTextContainer?.getAttribute("style") || "");
+    }
+
     function pushCandidate(button, priority) {
       if (!(button instanceof Element) || seenCandidates.has(button)) {
         return;
@@ -351,14 +421,14 @@
 
     prioritizedCandidates.forEach((button) => {
       const text = normalizeText(button.textContent || button.getAttribute("aria-label"));
-      if (uiMatchers.seeMoreRegex.test(text)) {
+      if (uiMatchers.seeMoreRegex.test(text) || hasInlineSeeMoreLabel(button, text)) {
         pushCandidate(button, "priority");
       }
     });
     genericCandidates.forEach((button) => pushCandidate(button, "generic"));
 
     function isLikelyPostExpander(button) {
-      if (!isVisible(button) || clickedPostExpanders.has(button)) {
+      if (!isVisible(button) || !canAttemptPostExpander(button)) {
         return false;
       }
 
@@ -384,7 +454,7 @@
       }
 
       const text = normalizeText(button.textContent || button.getAttribute("aria-label"));
-      if (!uiMatchers.seeMoreRegex.test(text)) {
+      if (!uiMatchers.seeMoreRegex.test(text) && !hasInlineSeeMoreLabel(button, text)) {
         return false;
       }
 
@@ -418,7 +488,7 @@
         return false;
       }
 
-      if (!storyMessage && button.closest('[role="list"], [aria-live], ul, ol')) {
+      if (!storyMessage && !previewMessage && button.closest('[role="list"], [aria-live], ul, ol')) {
         return false;
       }
 
@@ -467,7 +537,7 @@
         continue;
       }
 
-      clickedPostExpanders.add(button);
+      markPostExpanderAttempt(button);
       queueStatIncrement("expandedPosts");
 
       if (priority === "priority") {
@@ -534,6 +604,10 @@
       return;
     }
 
+    if (isMediaViewerPage() && getBlockingMediaViewerOverlay()) {
+      return;
+    }
+
     if (isDirectPostPage() || isMediaViewerPage()) {
       expandPostBodies(getDirectPageExpansionRoot(root));
       scheduleCommentAutomationPasses(document);
@@ -546,8 +620,11 @@
 
   function scheduleDocumentPasses() {
     runAll(document);
-     /* The main MutationObserver at the end of the file reacts to
-       further DOM changes. No hardcoded follow-up timeouts needed. */
+    scheduleStartupStabilizationPasses();
+    /* The main MutationObserver at the end of the file reacts to
+       further DOM changes. Startup stabilization adds a few short
+       follow-up passes because Facebook often hydrates the first feed
+       post after the initial document pass. */
   }
 
   async function loadSettings() {
@@ -670,6 +747,11 @@
     }
   });
 
+  /* Run one eager pass with defaults so first-feed expansion does not wait on
+     async storage reads during page startup. A second pass still runs after
+     settings load to apply the persisted configuration. */
+  scheduleDocumentPasses();
+
   resetSessionStats()
     .catch(() => {
       /* Ignore storage reset failures. */
@@ -736,8 +818,8 @@
     subtree: true
   });
 
-    /* Fallback heartbeat catches edge cases the MutationObserver may miss,
-      such as SPA navigation that only changes the URL without DOM mutations. */
+  /* Fallback heartbeat catches edge cases the MutationObserver may miss,
+     such as SPA navigation that only changes the URL without DOM mutations. */
   window.setInterval(() => {
     const currentUrl = window.location.href;
     if (currentUrl !== lastObservedUrl) {

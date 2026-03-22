@@ -17,9 +17,12 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 ## Post Expansion
 
 1. Find several truncated posts in the feed.
-2. Verify visible `See more`-style controls expand the post body.
-3. Confirm no unrelated menus or dialogs open during expansion.
-4. Confirm already-expanded posts are not spam-clicked repeatedly.
+2. Reload with a truncated first feed post visible at the top of the page.
+3. Verify the first visible `See more` expands during startup before scrolling away.
+4. Confirm the first post does not leave the literal `See more` text concatenated into the visible body.
+5. Verify later visible `See more`-style controls also expand the post body.
+6. Confirm no unrelated menus or dialogs open during expansion.
+7. Confirm already-expanded posts are not spam-clicked repeatedly.
 
 ## Comment Expansion
 
@@ -37,7 +40,8 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 2. Confirm a previously viewed post does not reopen over the photo.
 3. If the media viewer has inline comments, confirm the filter changes to `All comments`.
 4. If the media viewer is a direct `/photo/` or `/watch/` page, confirm comment expansion still works.
-5. Repeat photo open/close several times and confirm old dialogs are not re-targeted.
+5. If Facebook rewrites the URL to `/photo/` while the photo is still acting like a feed overlay, confirm no document-level automation targets an older post underneath it.
+6. Repeat photo open/close several times and confirm old dialogs are not re-targeted.
 
 ## Safety Checks
 

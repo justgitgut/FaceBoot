@@ -10,6 +10,8 @@ Comment automation has three stable surfaces:
 2. Direct post/permalink page
 3. Direct media surface or media dialog with visible comment UI
 
+Reels tab and `/reel/` pages are intentionally excluded from direct comment automation.
+
 The intended order is:
 
 1. Resolve the active comment surface narrowly.
@@ -28,6 +30,8 @@ The intended order is:
   - `[data-pagelet]`
   - `div[role="article"]`
 - A topmost media viewer without visible comment UI is a hard stop. Do not fall back to an older dialog underneath it.
+- A feed photo/lightbox can rewrite the page URL to `/photo/` before inline comments exist. That URL change alone must not trigger document-level direct-page automation.
+- Do not treat Reels surfaces as direct post surfaces even if the URL contains `/reel/`.
 
 ## Dialog Rules
 
@@ -76,3 +80,4 @@ After touching comment automation, verify all of the following:
 4. Reply/load-more controls expand after sorting changes.
 5. Direct `/photo/` and `/watch/` pages still work.
 6. Opening a photo does not resurrect a previously viewed post dialog.
+7. A feed photo that rewrites the URL to `/photo/` does not trigger random post/dialog reopen behavior before inline comments appear.

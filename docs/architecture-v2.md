@@ -22,6 +22,10 @@ FaceBoot is scoped to three stable behaviors:
 - Clicks visible `See more`-style controls for truncated posts.
 - Operates on the current visible root only.
 - Does not attempt menu interaction.
+- Runs one eager startup pass before async settings load and a few short follow-up passes for the first visible feed items.
+- Treats first-feed story-preview hydration as a timing problem first: a valid `See more` button may exist before Facebook finishes wiring its live handler.
+- Allows bounded retries for the same visible expander during startup stabilization instead of permanently suppressing the first no-op press.
+- See [post-expansion-notes.md](post-expansion-notes.md) for the first-post startup failure mode and the regression rules that protect it.
 
 ### Comment Expansion
 
@@ -30,6 +34,7 @@ FaceBoot is scoped to three stable behaviors:
   - already-open post dialogs.
 - Also supports direct media surfaces such as Facebook photo/watch pages when the
   comment UI lives outside a modal dialog.
+- Does not treat `/reel/` pages or the Reels tab as direct comment-automation surfaces.
 - On already-open post dialogs, opens the Facebook comment-ordering popup for the active post only.
 - Selects `All comments` before expanding visible comment/reply controls.
 - Expands visible comment/reply controls such as summary and load-more actions.
@@ -59,6 +64,7 @@ FaceBoot is scoped to three stable behaviors:
 - No recovery heuristics based on random outside clicks.
 - No feed-wide fallback from `document` into arbitrary post/comment surfaces.
 - No fallback from a topmost media viewer into older dialogs underneath it.
+- No direct comment automation on Reels tab or `/reel/` surfaces.
 
 ## Design Principle
 
@@ -73,5 +79,7 @@ If a behavior requires broad popup steering, React internals, or synthetic recov
 - Letting watcher callbacks rerun against the stale dialog that originally created the watcher.
 - Counting a filter-toggle click as success without verifying that the popup actually opened.
 - Reopening old post dialogs when a photo/media viewer appears without comments yet.
+- Permanently blacklisting a first-post `See more` button after one early synthetic click during startup hydration.
+- Assuming top-of-feed expansion failures are always selector problems; the first visible post can fail because Facebook attaches the live handler after the initial pass.
 
 See [regression-checklist.md](regression-checklist.md) for the expected validation steps after any automation changes.

@@ -115,7 +115,7 @@
 
   function isDirectPostPage() {
     const path = String(window.location.pathname || "");
-    return /\/permalink\/|\/posts\/|\/story\.php|\/reel\//i.test(path);
+    return /\/permalink\/|\/posts\/|\/story\.php/i.test(path);
   }
 
   function getActiveEditableElement() {
@@ -271,6 +271,18 @@
     }) || null;
   }
 
+  function getBlockingMediaViewerOverlay() {
+    const topVisibleDialog = [...document.querySelectorAll('[role="dialog"]')]
+      .reverse()
+      .find((dialog) => isVisible(dialog) && !isIgnoredDialog(dialog)) || null;
+
+    if (topVisibleDialog && isMediaViewerSurface(topVisibleDialog) && !hasCommentSurfaceSignals(topVisibleDialog)) {
+      return topVisibleDialog;
+    }
+
+    return null;
+  }
+
   function getVisiblePostDialog(root = document) {
     const visibleDialog = getTopVisibleDialog(root);
     /* Only real post dialogs or media viewer dialogs with inline comments should
@@ -289,10 +301,7 @@
     /* If the topmost visible overlay is a media viewer without comment UI yet,
        do not fall back to older dialogs underneath it or a previously viewed post
        dialog can be re-targeted when the user simply opens a photo. */
-    const topVisibleDialog = [...document.querySelectorAll('[role="dialog"]')]
-      .reverse()
-      .find((dialog) => isVisible(dialog) && !isIgnoredDialog(dialog)) || null;
-    if (topVisibleDialog && isMediaViewerSurface(topVisibleDialog) && !hasCommentSurfaceSignals(topVisibleDialog)) {
+    if (getBlockingMediaViewerOverlay()) {
       return null;
     }
 
@@ -1564,6 +1573,14 @@
     /* Restrict page-surface fallback to direct permalink/media pages. Allowing this
        on the feed reintroduces stray comment opens and random post navigation. */
     if (isDirectPostPage() || isMediaViewerPage()) {
+      const blockingMediaViewerOverlay = getBlockingMediaViewerOverlay();
+      if (blockingMediaViewerOverlay) {
+        debugCommentAutomation("resolve-root-blocked-by-media-overlay", {
+          overlay: describeElement(blockingMediaViewerOverlay)
+        });
+        return null;
+      }
+
       const resolvedSurface = getCommentSurface(document);
       if (resolvedSurface && canAutomateCommentSurface(resolvedSurface)) {
         debugCommentAutomation("resolve-root-page-surface", {
@@ -2031,6 +2048,7 @@
   globalThis.FaceBootCommentsRuntime = Object.freeze({
     isDirectPostPage,
     isMediaViewerPage,
+    getBlockingMediaViewerOverlay,
     getVisiblePostDialog,
     hasPostDialogSignals,
     hasCommentSurfaceSignals,
