@@ -134,12 +134,21 @@
       mutations and react as soon as changes land. */
   let pendingRunAllFrame = 0;
   let pendingAutomationFrame = 0;
+  let pendingRunAllRoot = null;
 
-  function debouncedRunAll() {
+  function debouncedRunAll(root = document) {
+    if (root instanceof Element) {
+      pendingRunAllRoot = root;
+    } else if (!(pendingRunAllRoot instanceof Element)) {
+      pendingRunAllRoot = document;
+    }
+
     if (pendingRunAllFrame) return;
     pendingRunAllFrame = requestAnimationFrame(() => {
+      const nextRoot = pendingRunAllRoot || document;
+      pendingRunAllRoot = null;
       pendingRunAllFrame = 0;
-      runAll(document);
+      runAll(nextRoot);
     });
   }
 
@@ -520,7 +529,7 @@
     if (visibleDialog) {
       if (hasPostDialogSignals(visibleDialog) || hasCommentSurfaceSignals(visibleDialog)) {
         expandPostBodies(visibleDialog);
-        runCommentAutomation(visibleDialog);
+        scheduleCommentAutomationPasses(visibleDialog);
       }
       return;
     }
@@ -689,19 +698,37 @@
 
   const observer = new MutationObserver((mutations) => {
     let hasNewElements = false;
+    let addedDialog = null;
     for (const mutation of mutations) {
       if (mutation.type !== "childList") continue;
       for (const node of mutation.addedNodes) {
         if (node.nodeType === Node.ELEMENT_NODE) {
           hasNewElements = true;
-          break;
+
+          const element = node;
+          if (element instanceof Element) {
+            if (element.matches('[role="dialog"]')) {
+              addedDialog = element;
+            } else {
+              const nestedDialog = element.querySelector?.('[role="dialog"]');
+              if (nestedDialog instanceof Element) {
+                addedDialog = nestedDialog;
+              }
+            }
+          }
         }
       }
-      if (hasNewElements) break;
     }
     if (!hasNewElements) return;
 
-    debouncedRunAll();
+    /* Prefer the exact newly added dialog when Facebook opens comments/photo UI.
+       A broad document rescan here can reselect stale dialogs that are still visible underneath. */
+    if (addedDialog && isVisible(addedDialog)) {
+      debouncedRunAll(addedDialog);
+      return;
+    }
+
+    debouncedRunAll(document);
   });
 
   observer.observe(document.documentElement, {

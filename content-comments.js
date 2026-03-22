@@ -235,6 +235,16 @@
     );
   }
 
+  function hasAutomatableDialogSignals(surface) {
+    if (!(surface instanceof Element) || !surface.matches('[role="dialog"]')) {
+      return false;
+    }
+
+    /* Feed dialogs require real post signals. Media dialogs are only valid when
+       comments are visibly present; otherwise photo viewers can hijack dialog resolution. */
+    return hasPostDialogSignals(surface) || (isMediaViewerSurface(surface) && hasCommentSurfaceSignals(surface));
+  }
+
   function getTopVisibleDialog(root = document) {
     const scopedElement = root instanceof Element ? root : null;
     const scopedDialog = scopedElement ? scopedElement.closest('[role="dialog"]') : null;
@@ -263,15 +273,37 @@
 
   function getVisiblePostDialog(root = document) {
     const visibleDialog = getTopVisibleDialog(root);
-    if (!visibleDialog) {
-      return null;
-    }
-
-    if (hasPostDialogSignals(visibleDialog)) {
+    /* Only real post dialogs or media viewer dialogs with inline comments should
+       suppress normal feed handling; unrelated overlays otherwise hijack comment automation. */
+    if (
+      visibleDialog &&
+      hasAutomatableDialogSignals(visibleDialog)
+    ) {
       return visibleDialog;
     }
 
-    return visibleDialog;
+    if (!(root instanceof Element)) {
+      return null;
+    }
+
+    /* If the topmost visible overlay is a media viewer without comment UI yet,
+       do not fall back to older dialogs underneath it or a previously viewed post
+       dialog can be re-targeted when the user simply opens a photo. */
+    const topVisibleDialog = [...document.querySelectorAll('[role="dialog"]')]
+      .reverse()
+      .find((dialog) => isVisible(dialog) && !isIgnoredDialog(dialog)) || null;
+    if (topVisibleDialog && isMediaViewerSurface(topVisibleDialog) && !hasCommentSurfaceSignals(topVisibleDialog)) {
+      return null;
+    }
+
+    const dialogs = [...document.querySelectorAll('[role="dialog"]')].reverse();
+    return dialogs.find((dialog) => {
+      if (!isVisible(dialog) || isIgnoredDialog(dialog)) {
+        return false;
+      }
+
+      return hasAutomatableDialogSignals(dialog);
+    }) || null;
   }
 
   function isCommentHintControl(control) {
@@ -670,25 +702,90 @@
     return false;
   }
 
-  function activateFilterToggle(toggle) {
+  function getFilterToggleActivationCandidates(toggle) {
+    if (!(toggle instanceof Element)) {
+      return [];
+    }
+
+    const labelText = normalizeText(toggle.textContent || toggle.getAttribute("aria-label"));
+    const candidates = [];
+    const seenCandidates = new Set();
+
+    function pushCandidate(candidate) {
+      if (!(candidate instanceof Element) || !isVisible(candidate) || seenCandidates.has(candidate)) {
+        return;
+      }
+
+      seenCandidates.add(candidate);
+      candidates.push(candidate);
+    }
+
+    pushCandidate(toggle);
+    pushCandidate(getElementCenterHitTarget(toggle));
+
+    if (labelText) {
+      [...toggle.querySelectorAll('span, div')].forEach((candidate) => {
+        const candidateText = normalizeText(candidate.textContent || candidate.getAttribute("aria-label"));
+        if (candidateText === labelText) {
+          pushCandidate(candidate);
+        }
+      });
+    }
+
+    pushCandidate(toggle.firstElementChild);
+    return candidates;
+  }
+
+  function didFilterToggleOpen(surface, toggle) {
+    if (!(toggle instanceof Element)) {
+      return false;
+    }
+
+    const toggleText = normalizeText(toggle.textContent || toggle.getAttribute("aria-label"));
+    return (
+      toggle.getAttribute("aria-expanded") === "true" ||
+      matchesAllCommentsText(toggleText) ||
+      !!getCommentSortMenu(surface, toggle)
+    );
+  }
+
+  function activateFilterToggle(surface, toggle) {
     if (!(toggle instanceof Element) || !isVisible(toggle)) {
       return false;
     }
 
-    try {
-      if (typeof toggle.click === "function") {
-        toggle.click();
+    const candidates = getFilterToggleActivationCandidates(toggle);
+
+    for (const candidate of candidates) {
+      try {
+        if (typeof candidate.click === "function") {
+          candidate.click();
+          if (didFilterToggleOpen(surface, toggle)) {
+            return true;
+          }
+        }
+      } catch {
+        /* Ignore native click failures. */
+      }
+
+      if (pressElement(candidate, {
+        dispatchKeyboard: false,
+        dispatchSyntheticClick: true,
+        dispatchNativeClick: false
+      }) && didFilterToggleOpen(surface, toggle)) {
         return true;
       }
-    } catch {
-      /* Ignore native click failures. */
+
+      if (pressElement(candidate, {
+        dispatchKeyboard: false,
+        dispatchSyntheticClick: false,
+        dispatchNativeClick: true
+      }) && didFilterToggleOpen(surface, toggle)) {
+        return true;
+      }
     }
 
-    return pressElement(toggle, {
-      dispatchKeyboard: false,
-      dispatchSyntheticClick: false,
-      dispatchNativeClick: true
-    });
+    return false;
   }
 
     /* This state is intentionally minimal now that the popup behavior is stable.
@@ -908,7 +1005,7 @@
       return "pending";
     }
 
-    if (!activateFilterToggle(toggle)) {
+    if (!activateFilterToggle(surface, toggle)) {
       debugCommentAutomation("filter-toggle-failed", {
         target: describeElement(surface),
         toggleText
@@ -1100,7 +1197,7 @@
     }
 
     if (surface.matches('[role="dialog"]')) {
-      return hasPostDialogSignals(surface);
+      return hasAutomatableDialogSignals(surface);
     }
 
     if (isDirectPageCommentSurface(surface)) {
@@ -1436,7 +1533,7 @@
   function getActiveCommentAutomationRoot(root = document) {
     if (root instanceof Element) {
       const scopedDialog = getVisiblePostDialog(root);
-      if (scopedDialog && hasPostDialogSignals(scopedDialog)) {
+      if (scopedDialog && hasAutomatableDialogSignals(scopedDialog)) {
         debugCommentAutomation("resolve-root-scoped-dialog", {
           source: describeElement(root),
           resolved: describeElement(scopedDialog)
@@ -1457,19 +1554,23 @@
 
     const visibleDialog = getVisiblePostDialog(document);
 
-    if (visibleDialog && hasPostDialogSignals(visibleDialog)) {
+    if (visibleDialog && hasAutomatableDialogSignals(visibleDialog)) {
       debugCommentAutomation("resolve-root-visible-dialog", {
         resolved: describeElement(visibleDialog)
       });
       return visibleDialog;
     }
 
-    const resolvedSurface = getCommentSurface(document);
-    if (resolvedSurface && canAutomateCommentSurface(resolvedSurface)) {
-      debugCommentAutomation("resolve-root-page-surface", {
-        resolved: describeElement(resolvedSurface)
-      });
-      return resolvedSurface;
+    /* Restrict page-surface fallback to direct permalink/media pages. Allowing this
+       on the feed reintroduces stray comment opens and random post navigation. */
+    if (isDirectPostPage() || isMediaViewerPage()) {
+      const resolvedSurface = getCommentSurface(document);
+      if (resolvedSurface && canAutomateCommentSurface(resolvedSurface)) {
+        debugCommentAutomation("resolve-root-page-surface", {
+          resolved: describeElement(resolvedSurface)
+        });
+        return resolvedSurface;
+      }
     }
 
     debugCommentAutomation("resolve-root-none", {
@@ -1510,6 +1611,8 @@
       target: describeElement(target),
       filterResult
     });
+    /* Wait for the sorter mutation pass before trying to expand replies; otherwise
+       expansion can run against pre-filter content and miss newly rendered controls. */
     if (filterResult === "pending") {
       return true;
     }
@@ -1539,7 +1642,7 @@
     }
 
     const watcher = watchSurfaceMutations(target, () => {
-      runCommentAutomation(root, deps);
+      runCommentAutomation(document, deps);
     }, { maxDuration: 6000 });
 
     if (watcher) {
@@ -1912,7 +2015,7 @@
 
     if (!activeExpansionWatchers.has(activeDialog)) {
       const watcher = watchSurfaceMutations(activeDialog, () => {
-        runCommentAutomation(activeDialog, deps);
+        runCommentAutomation(document, deps);
       }, { maxDuration: expansionCooldown + 2000 });
 
       if (watcher) {

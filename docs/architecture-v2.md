@@ -28,10 +28,21 @@ FaceBoot is scoped to three stable behaviors:
 - Runs only on:
   - direct post/permalink pages, or
   - already-open post dialogs.
+- Also supports direct media surfaces such as Facebook photo/watch pages when the
+  comment UI lives outside a modal dialog.
 - On already-open post dialogs, opens the Facebook comment-ordering popup for the active post only.
 - Selects `All comments` before expanding visible comment/reply controls.
 - Expands visible comment/reply controls such as summary and load-more actions.
 - Does not interact with unrelated menus or other posts.
+
+### Media Viewer Handling
+
+- Media viewers are split into two cases:
+  - media dialogs with inline comment UI
+  - direct media pages where comments live in `role="complementary"`, `main`, `role="main"`, `data-pagelet`, or `div[role="article"]`
+- A media viewer without visible comment UI must not trigger fallback to an older post dialog underneath it.
+- Mutation-driven reruns should prefer a newly added dialog root over a broad document rescan.
+- Follow-up comment-automation passes must resolve from the current document state, not from a stale previously viewed dialog.
 
 ### URL Normalization
 
@@ -46,11 +57,21 @@ FaceBoot is scoped to three stable behaviors:
 - No React-internal event bridging for menu item selection.
 - No feed-to-modal auto-opening behavior.
 - No recovery heuristics based on random outside clicks.
+- No feed-wide fallback from `document` into arbitrary post/comment surfaces.
+- No fallback from a topmost media viewer into older dialogs underneath it.
 
 ## Design Principle
 
 Prefer stable DOM transformations and narrowly scoped UI workflows over broad transient popup automation.
 
 If a behavior requires broad popup steering, React internals, or synthetic recovery clicks outside the active dialog, it is outside the default FaceBoot automation boundary and should remain disabled unless reintroduced as a clearly isolated experimental feature.
+
+## Regression Triggers To Avoid
+
+- Treating the first visible dialog as the active post by default.
+- Allowing `document`-level comment automation to search the feed for any plausible surface.
+- Letting watcher callbacks rerun against the stale dialog that originally created the watcher.
+- Counting a filter-toggle click as success without verifying that the popup actually opened.
+- Reopening old post dialogs when a photo/media viewer appears without comments yet.
 
 See [regression-checklist.md](regression-checklist.md) for the expected validation steps after any automation changes.
