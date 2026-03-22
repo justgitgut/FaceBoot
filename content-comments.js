@@ -156,6 +156,300 @@
     return /\/photo\/|\/watch\//i.test(path);
   }
 
+  function isReelExperiencePage() {
+    const path = String(window.location.pathname || "");
+    return /\/reel(?:s)?(?:\/|$)/i.test(path);
+  }
+
+  function getViewportVisibilityScore(element) {
+    if (!(element instanceof Element) || !isVisible(element)) {
+      return 0;
+    }
+
+    const rect = element.getBoundingClientRect();
+    if (!rect || rect.width <= 0 || rect.height <= 0) {
+      return 0;
+    }
+
+    const viewportWidth = window.innerWidth || document.documentElement?.clientWidth || 0;
+    const viewportHeight = window.innerHeight || document.documentElement?.clientHeight || 0;
+    const visibleWidth = Math.max(0, Math.min(rect.right, viewportWidth) - Math.max(rect.left, 0));
+    const visibleHeight = Math.max(0, Math.min(rect.bottom, viewportHeight) - Math.max(rect.top, 0));
+
+    if (visibleWidth <= 0 || visibleHeight <= 0) {
+      return 0;
+    }
+
+    return Math.round((visibleWidth * visibleHeight) / 1000);
+  }
+
+  function hasVisibleLargeReelMedia(surface) {
+    if (!(surface instanceof Element) || !isVisible(surface)) {
+      return false;
+    }
+
+    return [...surface.querySelectorAll("video")].some((video) => {
+      if (!(video instanceof Element) || !isVisible(video)) {
+        return false;
+      }
+
+      const rect = video.getBoundingClientRect();
+      return rect.width >= 220 && rect.height >= 280;
+    });
+  }
+
+  function hasReelNavigationSignals(surface) {
+    if (!(surface instanceof Element) || !isVisible(surface)) {
+      return false;
+    }
+
+    return !!surface.querySelector('a[role="link"][href*="/reel/"], a[href*="/reel/"]');
+  }
+
+  function hasReelsLabelSignals(surface) {
+    if (!(surface instanceof Element) || !isVisible(surface)) {
+      return false;
+    }
+
+    const ownLabel = normalizeText(surface.getAttribute("aria-label"));
+    if (ownLabel === "reels" || ownLabel.startsWith("reels ")) {
+      return true;
+    }
+
+    return [...surface.querySelectorAll('h1, h2, h3, h4, [role="heading"], [role="tab"], [aria-label]')].some((candidate) => {
+      if (!(candidate instanceof Element) || !isVisible(candidate)) {
+        return false;
+      }
+
+      const text = normalizeText(candidate.textContent || candidate.getAttribute("aria-label"));
+      return text === "reels" || text.startsWith("reels ");
+    });
+  }
+
+  function isActiveReelContextCandidate(surface) {
+    if (!(surface instanceof Element) || !isVisible(surface)) {
+      return false;
+    }
+
+    if (!surface.matches('div[role="article"], [data-pagelet], main, [role="main"]')) {
+      return false;
+    }
+
+    if (surface.closest('[role="dialog"]')) {
+      return false;
+    }
+
+    if (!hasVisibleLargeReelMedia(surface)) {
+      return false;
+    }
+
+    return isReelExperiencePage() || hasReelNavigationSignals(surface) || hasReelsLabelSignals(surface);
+  }
+
+  function chooseBestScopedCandidate(candidates) {
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      return null;
+    }
+
+    candidates.sort((left, right) => {
+      if (right.score !== left.score) {
+        return right.score - left.score;
+      }
+
+      return left.top - right.top;
+    });
+
+    const best = candidates[0] || null;
+    const second = candidates[1] || null;
+    if (!best) {
+      return null;
+    }
+
+    if (!second) {
+      return best.surface;
+    }
+
+    const nested = best.surface.contains(second.surface) || second.surface.contains(best.surface);
+    if (nested || best.score - second.score >= 45) {
+      return best.surface;
+    }
+
+    return null;
+  }
+
+  function getActiveReelContext(root = document) {
+    if (!isReelExperiencePage()) {
+      return null;
+    }
+
+    const scopeElement = root instanceof Element ? root : document.body;
+    const selectors = 'div[role="article"], [data-pagelet], main, [role="main"]';
+    const seen = new Set();
+    const candidates = [];
+
+    function addCandidate(surface, bias = 0) {
+      if (!(surface instanceof Element) || seen.has(surface) || !isActiveReelContextCandidate(surface)) {
+        return;
+      }
+
+      seen.add(surface);
+
+      let score = bias;
+      if (scopeElement instanceof Element && surface === scopeElement) {
+        score += 120;
+      }
+      if (scopeElement instanceof Element && surface.contains(scopeElement)) {
+        score += 60;
+      }
+      if (scopeElement instanceof Element && scopeElement.contains(surface)) {
+        score += 30;
+      }
+      if (surface.matches('main, [role="main"]')) {
+        score += 40;
+      }
+      if (hasReelNavigationSignals(surface)) {
+        score += 100;
+      }
+      if (hasReelsLabelSignals(surface)) {
+        score += 45;
+      }
+      if (hasCommentSurfaceSignals(surface)) {
+        score += 55;
+      }
+
+      const relatedCommentSurface = [...surface.querySelectorAll('[role="complementary"], div[role="article"], [data-pagelet], main, [role="main"]')]
+        .find((candidate) => candidate instanceof Element && isVisible(candidate) && hasCommentSurfaceSignals(candidate));
+      if (relatedCommentSurface) {
+        score += 50;
+      }
+
+      const visibilityScore = getViewportVisibilityScore(surface);
+      score += Math.min(140, visibilityScore);
+
+      const rect = surface.getBoundingClientRect();
+      candidates.push({
+        surface,
+        score,
+        top: Number.isFinite(rect?.top) ? rect.top : Number.POSITIVE_INFINITY
+      });
+    }
+
+    if (scopeElement instanceof Element) {
+      addCandidate(scopeElement.closest(selectors), 110);
+      if (scopeElement.matches(selectors)) {
+        addCandidate(scopeElement, 90);
+      }
+      scopeElement.querySelectorAll?.(selectors).forEach((surface) => addCandidate(surface, 20));
+    }
+
+    document.querySelectorAll('video, a[href*="/reel/"]').forEach((node) => {
+      if (!(node instanceof Element) || !isVisible(node)) {
+        return;
+      }
+
+      addCandidate(node.closest(selectors), 35);
+    });
+
+    document.querySelectorAll(selectors).forEach((surface) => addCandidate(surface, 5));
+    return chooseBestScopedCandidate(candidates);
+  }
+
+  function getActiveReelCommentSurface(root = document) {
+    if (!isReelExperiencePage()) {
+      return null;
+    }
+
+    const reelContext = getActiveReelContext(root);
+    if (!(reelContext instanceof Element)) {
+      return null;
+    }
+
+    const scopeElement = root instanceof Element ? root : reelContext;
+    const seen = new Set();
+    const candidates = [];
+    const selectors = '[role="complementary"], div[role="article"], [data-pagelet], main, [role="main"]';
+
+    function addCandidate(surface, bias = 0) {
+      if (!(surface instanceof Element) || seen.has(surface) || !isVisible(surface) || !hasCommentSurfaceSignals(surface)) {
+        return;
+      }
+
+      if (surface.closest('[role="dialog"]')) {
+        return;
+      }
+
+      if (!(reelContext.contains(surface) || surface.contains(reelContext) || surface.parentElement === reelContext.parentElement)) {
+        return;
+      }
+
+      seen.add(surface);
+
+      let score = bias;
+      if (surface === reelContext) {
+        score += 60;
+      }
+      if (surface.matches('[role="complementary"]')) {
+        score += 95;
+      }
+      if (surface.matches('main, [role="main"], [data-pagelet]')) {
+        score += 50;
+      }
+      if (scopeElement instanceof Element && surface === scopeElement) {
+        score += 80;
+      }
+      if (scopeElement instanceof Element && surface.contains(scopeElement)) {
+        score += 35;
+      }
+      if (scopeElement instanceof Element && scopeElement.contains(surface)) {
+        score += 20;
+      }
+
+      const sorterToggle = getCommentSorterToggle(surface);
+      if (sorterToggle instanceof Element) {
+        score += 100;
+      }
+
+      if (surface.querySelector('[contenteditable="true"][role="textbox"], textarea')) {
+        score += 65;
+      }
+
+      if (surface.querySelector('[role="list"], [aria-live], ul, ol')) {
+        score += 40;
+      }
+
+      if (hasVisibleLargeReelMedia(surface)) {
+        score -= 15;
+      }
+
+      const rect = surface.getBoundingClientRect();
+      score += Math.min(120, getViewportVisibilityScore(surface));
+
+      candidates.push({
+        surface,
+        score,
+        top: Number.isFinite(rect?.top) ? rect.top : Number.POSITIVE_INFINITY
+      });
+    }
+
+    addCandidate(reelContext, 80);
+    reelContext.querySelectorAll(selectors).forEach((surface) => addCandidate(surface, 20));
+
+    if (reelContext.parentElement instanceof Element) {
+      reelContext.parentElement.querySelectorAll(':scope > [role="complementary"], :scope > div[role="article"], :scope > [data-pagelet], :scope > main, :scope > [role="main"]').forEach((surface) => addCandidate(surface, 25));
+    }
+
+    return chooseBestScopedCandidate(candidates);
+  }
+
+  function isReelCommentSurface(surface) {
+    if (!(surface instanceof Element) || !isVisible(surface) || !isReelExperiencePage()) {
+      return false;
+    }
+
+    const activeSurface = getActiveReelCommentSurface(surface);
+    return activeSurface === surface;
+  }
+
   function isDirectPageCommentSurface(surface) {
     if (!(surface instanceof Element) || !isVisible(surface)) {
       return false;
@@ -1039,6 +1333,11 @@
       return forcedDialog;
     }
 
+    const reelSurface = getActiveReelCommentSurface(scopeElement || document);
+    if (reelSurface) {
+      return reelSurface;
+    }
+
     const seenSurfaces = new Set();
     const candidates = [];
     const surfaceSelector = '[role="dialog"], div[role="article"], [data-pagelet], main, [role="main"], [role="complementary"]';
@@ -1199,6 +1498,10 @@
   function canAutomateCommentSurface(surface) {
     if (!(surface instanceof Element)) {
       return false;
+    }
+
+    if (isReelCommentSurface(surface)) {
+      return true;
     }
 
     if (isMediaViewerSurface(surface) && !hasCommentSurfaceSignals(surface)) {
@@ -1590,8 +1893,17 @@
       }
     }
 
+    const reelSurface = getActiveReelCommentSurface(document);
+    if (reelSurface) {
+      debugCommentAutomation("resolve-root-reel-surface", {
+        resolved: describeElement(reelSurface)
+      });
+      return reelSurface;
+    }
+
     debugCommentAutomation("resolve-root-none", {
-      directPost: isDirectPostPage() || isMediaViewerPage()
+      directPost: isDirectPostPage() || isMediaViewerPage(),
+      reelPage: isReelExperiencePage()
     });
 
     return null;
@@ -1608,7 +1920,8 @@
 
     debugCommentAutomation("run-automation", {
       target: describeElement(target),
-      directPost: isDirectPostPage() || isMediaViewerPage()
+      directPost: isDirectPostPage() || isMediaViewerPage(),
+      reelPage: isReelExperiencePage()
     });
 
     const filterState = getCommentFilterState(target);
@@ -1704,7 +2017,7 @@
 
     const expansionState = getCommentExpansionState(activeDialog);
     const now = Date.now();
-    const onDirectPostPage = isDirectPostPage() || isMediaViewerPage();
+    const onDirectPostPage = isDirectPostPage() || isMediaViewerPage() || isReelCommentSurface(activeDialog);
     const isDialogSurface = activeDialog.matches('[role="dialog"]');
 
     function getCommentExpanderKind(control) {
@@ -2048,6 +2361,8 @@
   globalThis.FaceBootCommentsRuntime = Object.freeze({
     isDirectPostPage,
     isMediaViewerPage,
+    isReelExperiencePage,
+    getActiveReelCommentSurface,
     getBlockingMediaViewerOverlay,
     getVisiblePostDialog,
     hasPostDialogSignals,

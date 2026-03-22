@@ -34,7 +34,9 @@ FaceBoot is scoped to three stable behaviors:
   - already-open post dialogs.
 - Also supports direct media surfaces such as Facebook photo/watch pages when the
   comment UI lives outside a modal dialog.
-- Does not treat `/reel/` pages or the Reels tab as direct comment-automation surfaces.
+- Reels are handled only through a separate active-reel resolver that must identify
+  one visible reel comment surface without falling back into older dialogs or broad
+  document scans.
 - On already-open post dialogs, opens the Facebook comment-ordering popup for the active post only.
 - Selects `All comments` before expanding visible comment/reply controls.
 - Expands visible comment/reply controls such as summary and load-more actions.
@@ -64,7 +66,8 @@ FaceBoot is scoped to three stable behaviors:
 - No recovery heuristics based on random outside clicks.
 - No feed-wide fallback from `document` into arbitrary post/comment surfaces.
 - No fallback from a topmost media viewer into older dialogs underneath it.
-- No direct comment automation on Reels tab or `/reel/` surfaces.
+- No generic direct comment automation on Reels tab or `/reel/` surfaces.
+- No reel fallback from `document` into arbitrary page surfaces when the active reel root is ambiguous.
 
 ## Design Principle
 
@@ -79,6 +82,7 @@ If a behavior requires broad popup steering, React internals, or synthetic recov
 - Letting watcher callbacks rerun against the stale dialog that originally created the watcher.
 - Counting a filter-toggle click as success without verifying that the popup actually opened.
 - Reopening old post dialogs when a photo/media viewer appears without comments yet.
+- Resolving a reel comment surface unless one active reel root clearly outranks all other visible candidates.
 - Permanently blacklisting a first-post `See more` button after one early synthetic click during startup hydration.
 - Assuming top-of-feed expansion failures are always selector problems; the first visible post can fail because Facebook attaches the live handler after the initial pass.
 

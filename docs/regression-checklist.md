@@ -33,6 +33,12 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 5. Confirm `All comments` becomes the selected option in the dialog.
 6. Verify visible comment/reply expansion works after sorting changes.
 7. Confirm no unrelated post or menu is opened.
+8. Open a `/reel/` page or Reels route with one clearly visible active reel.
+9. Verify only the active reel comment surface is targeted.
+10. Confirm `All comments` becomes the selected option when the reel sorter is present.
+11. Verify visible reel comment/reply expansion works after sorting changes.
+12. Confirm no older feed/dialog post reopens while using the reel surface.
+13. If multiple reel candidates are visible, confirm automation prefers doing nothing over opening the wrong surface.
 
 ## Media Viewer Checks
 

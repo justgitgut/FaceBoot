@@ -88,6 +88,10 @@
     return contentComments.isMediaViewerPage();
   }
 
+  function getActiveReelCommentSurface(root = document) {
+    return contentComments.getActiveReelCommentSurface?.(root) || null;
+  }
+
   function getVisiblePostDialog(root = document) {
     return contentComments.getVisiblePostDialog(root);
   }
@@ -610,6 +614,11 @@
 
     if (isDirectPostPage() || isMediaViewerPage()) {
       expandPostBodies(getDirectPageExpansionRoot(root));
+      scheduleCommentAutomationPasses(document);
+      return;
+    }
+
+    if (getActiveReelCommentSurface(root)) {
       scheduleCommentAutomationPasses(document);
       return;
     }
