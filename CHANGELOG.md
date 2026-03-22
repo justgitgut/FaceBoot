@@ -1,5 +1,15 @@
 # Changelog
 
+## 2026-03-22 - v0.2.0
+
+### Release Summary
+
+- Published the first minor release with the isolated reel comment resolver, stronger anti-refresh protection, corrected session and filter-change stats, and the redesigned Activity tab.
+
+### Packaging
+
+- Included the new Activity tab book icon asset and About tab source icon asset in the release package.
+
 ## 2026-03-22
 
 ### Fixed
