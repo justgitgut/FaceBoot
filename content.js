@@ -27,6 +27,7 @@
     removedPeopleYouMayKnow: 0,
     removedSponsored: 0,
     preventedRefreshes: 0,
+    commentFilterChanges: 0,
     expandedPosts: 0,
     expandedComments: 0
   };
@@ -38,6 +39,7 @@
     sessionRemovedPeopleYouMayKnow: 0,
     sessionRemovedSponsored: 0,
     sessionPreventedRefreshes: 0,
+    sessionCommentFilterChanges: 0,
     sessionExpandedPosts: 0,
     sessionExpandedComments: 0
   };
@@ -327,18 +329,6 @@
 
     try {
       await chrome.storage.local.set(next);
-    } catch (error) {
-      markExtensionContextInvalid(error);
-    }
-  }
-
-  async function resetSessionStats() {
-    if (!canUseExtensionApis()) {
-      return;
-    }
-
-    try {
-      await chrome.storage.local.set({ ...SESSION_STATS_DEFAULTS });
     } catch (error) {
       markExtensionContextInvalid(error);
     }
@@ -761,11 +751,7 @@
      settings load to apply the persisted configuration. */
   scheduleDocumentPasses();
 
-  resetSessionStats()
-    .catch(() => {
-      /* Ignore storage reset failures. */
-    })
-    .then(() => loadSettings())
+  loadSettings()
     .then(() => {
       scheduleDocumentPasses();
     });

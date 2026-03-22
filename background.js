@@ -12,6 +12,29 @@
   ];
   const CONTENT_SCRIPT_FILES = ["shared-stats.js", "content-utils.js", "content-debug.js", "content-feed.js", "content-comments.js", "content.js"];
   const ANTI_REFRESH_SCRIPT_ID = "faceboot-anti-refresh";
+  const SESSION_STATS_DEFAULTS = {
+    sessionRemovedReels: 0,
+    sessionRemovedFollowPosts: 0,
+    sessionRemovedJoinPosts: 0,
+    sessionRemovedStories: 0,
+    sessionRemovedPeopleYouMayKnow: 0,
+    sessionRemovedSponsored: 0,
+    sessionPreventedRefreshes: 0,
+    sessionCommentFilterChanges: 0,
+    sessionExpandedPosts: 0,
+    sessionExpandedComments: 0
+  };
+
+  async function resetSessionStats() {
+    try {
+      /* Session counters belong to the browser/extension session, not individual
+         Facebook page loads. Resetting them from the content script causes normal
+         navigations or reinjection to wipe the popup's This Session view. */
+      await chrome.storage.local.set(SESSION_STATS_DEFAULTS);
+    } catch (_error) {
+      /* Ignore transient storage failures. */
+    }
+  }
 
   async function syncAntiRefreshRegistration(enabled) {
     try {
@@ -203,11 +226,15 @@
   }
 
   chrome.runtime.onInstalled.addListener(() => {
-    handleActivation();
+    resetSessionStats().finally(() => {
+      handleActivation();
+    });
   });
 
   chrome.runtime.onStartup.addListener(() => {
-    handleActivation();
+    resetSessionStats().finally(() => {
+      handleActivation();
+    });
   });
 
   chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {

@@ -31,14 +31,16 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 3. Open a post dialog from the feed.
 4. Verify the comment-ordering popup opens only for the active dialog.
 5. Confirm `All comments` becomes the selected option in the dialog.
-6. Verify visible comment/reply expansion works after sorting changes.
-7. Confirm no unrelated post or menu is opened.
+6. Confirm `Filter changes` increments by 1 when FaceBoot actually switches the sorter away from `Most relevant` or `Newest`.
+7. Verify visible comment/reply expansion works after sorting changes.
+8. Confirm no unrelated post or menu is opened.
 8. Open a `/reel/` page or Reels route with one clearly visible active reel.
 9. Verify only the active reel comment surface is targeted.
 10. Confirm `All comments` becomes the selected option when the reel sorter is present.
-11. Verify visible reel comment/reply expansion works after sorting changes.
-12. Confirm no older feed/dialog post reopens while using the reel surface.
-13. If multiple reel candidates are visible, confirm automation prefers doing nothing over opening the wrong surface.
+11. Confirm `Filter changes` increments only when the reel sorter actually switches.
+12. Verify visible reel comment/reply expansion works after sorting changes.
+13. Confirm no older feed/dialog post reopens while using the reel surface.
+14. If multiple reel candidates are visible, confirm automation prefers doing nothing over opening the wrong surface.
 
 ## Media Viewer Checks
 
@@ -84,7 +86,16 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 1. Enable anti-refresh protection.
 2. Switch away from Facebook and back.
 3. Confirm the page is not force-reloaded.
-4. Confirm core cleanup/expansion still works with anti-refresh enabled.
+4. Leave Facebook in the background long enough for its resume handlers to fire, then return and confirm the page still does not force-reload.
+5. Confirm core cleanup/expansion still works with anti-refresh enabled.
+
+## Activity Stats Checks
+
+1. Trigger at least one feed cleanup action and one automated action.
+2. Confirm `This Session` updates without reopening the popup.
+3. Refresh the Facebook page and confirm `This Session` is not wiped by that page load.
+4. Switch to `All Time` and confirm the totals are at least as large as `This Session`.
+5. Use `Reset` and confirm totals clear and the tracking date updates.
 
 ## Acceptance Criteria
 

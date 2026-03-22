@@ -26,6 +26,17 @@
     ...(sharedStats.DEFAULT_STATS || {}),
     ...(sharedStats.SESSION_STATS_DEFAULTS || {})
   };
+  const STATS_RESET_AT_KEY = "activityStatsResetAt";
+  const STATS_STORAGE_DEFAULTS = {
+    ...DEFAULT_STATS,
+    [STATS_RESET_AT_KEY]: 0
+  };
+  const SAVED_TIME_WEIGHTS = Object.freeze({
+    expandedPosts: 3,
+    expandedComments: 3,
+    commentFilterChanges: 5,
+    preventedRefreshes: 10
+  });
   const getSessionStatKey = sharedStats.toSessionKey || ((statKey) => `session${statKey.charAt(0).toUpperCase()}${statKey.slice(1)}`);
 
   const antiRefreshInput = document.getElementById("enableAntiRefresh");
@@ -37,17 +48,24 @@
   const blockFollowPostsInput = document.getElementById("enableBlockFollowPosts");
   const blockJoinPostsInput = document.getElementById("enableBlockJoinPosts");
   const goDirectlyToFeedsInput = document.getElementById("enableGoDirectlyToFeeds");
-  const statsSummary = document.getElementById("statsSummary");
-  const statsGrid = document.getElementById("statsGrid");
+  const timeSavedValue = document.getElementById("timeSavedValue");
+  const cleanupTotalEl = document.getElementById("cleanupTotal");
+  const cleanupRows = document.getElementById("cleanupRows");
+  const activityRows = document.getElementById("activityRows");
+  const resetInfo = document.getElementById("resetInfo");
   const feedCleanupNote = document.getElementById("feedCleanupNote");
   const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
   const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
+  const periodButtons = Array.from(document.querySelectorAll("[data-period]"));
   const feedCleanupDependentRows = Array.from(document.querySelectorAll('[data-parent-toggle="enableFeedFilter"]'));
   const applyButton = document.getElementById("applyButton");
   const donateButton = document.getElementById("donateButton");
+  const resetStatsButton = document.getElementById("resetStatsButton");
   const status = document.getElementById("status");
   const extensionVersion = document.getElementById("extensionVersion");
-  const statElements = new Map();
+  const statRowElements = new Map();
+  let activePeriod = "session";
+  let latestStats = null;
   let clearStatusTimer = null;
   let isDirty = false;
   const DONATE_URL = "https://www.buymeacoffee.com/pinkerton";
@@ -61,44 +79,53 @@
     extensionVersion.textContent = manifestVersion ? `v${manifestVersion}` : "";
   }
 
-  function createStatCard(label, options = {}) {
-    const item = document.createElement("div");
-    item.className = `stat-item${options.summary ? " stat-item--summary" : ""}`;
+  function createStatRow(label) {
+    const row = document.createElement("div");
+    row.className = "fb-stat-row";
 
-    const total = document.createElement("span");
-    total.className = "stat-num";
-    total.textContent = "0";
+    const labelEl = document.createElement("span");
+    labelEl.className = "fb-stat-row-label";
+    labelEl.textContent = label;
 
-    const title = document.createElement("span");
-    title.className = "stat-lbl";
-    title.textContent = label;
+    const valueEl = document.createElement("span");
+    valueEl.className = "fb-stat-row-value";
+    valueEl.textContent = "0";
 
-    const session = document.createElement("span");
-    session.className = "stat-session";
-    session.textContent = "+0 this session";
-
-    item.append(total, title, session);
-    return { item, total, session };
+    row.append(labelEl, valueEl);
+    return { row, valueEl };
   }
 
   function buildStatsGrid() {
-    statsSummary.replaceChildren();
-    statsGrid.replaceChildren();
-    statElements.clear();
+    cleanupRows.replaceChildren();
+    activityRows.replaceChildren();
+    statRowElements.clear();
 
-    const removedSummary = createStatCard("All removed items", { summary: true });
-    statsSummary.appendChild(removedSummary.item);
-    statElements.set("__cleanupTotal__", removedSummary);
+    CLEANUP_STATS.forEach(({ key, label }) => {
+      const card = createStatRow(label);
+      cleanupRows.appendChild(card.row);
+      statRowElements.set(key, card);
+    });
 
-    [...CLEANUP_STATS, ...ACTIVITY_STATS].forEach(({ key, label }) => {
-      const card = createStatCard(label);
-      statsGrid.appendChild(card.item);
-      statElements.set(key, card);
+    ACTIVITY_STATS.forEach(({ key, label }) => {
+      const card = createStatRow(label);
+      activityRows.appendChild(card.row);
+      statRowElements.set(key, card);
     });
   }
 
   function formatStat(value) {
     return Number(value || 0).toLocaleString();
+  }
+
+  function setActivePeriod(period) {
+    activePeriod = period;
+    periodButtons.forEach((btn) => {
+      btn.classList.toggle("is-active", btn.dataset.period === period);
+    });
+
+    if (latestStats) {
+      renderStats(latestStats);
+    }
   }
 
   function setActiveTab(targetId) {
@@ -116,24 +143,92 @@
   }
 
   function renderStats(stats) {
-    const cleanupTotals = CLEANUP_STATS.reduce((sum, { key }) => sum + Number(stats[key] || 0), 0);
-    const cleanupSessionTotals = CLEANUP_STATS.reduce((sum, { key }) => sum + Number(stats[getSessionStatKey(key)] || 0), 0);
-    const summaryCard = statElements.get("__cleanupTotal__");
+    latestStats = stats;
+    const isSession = activePeriod === "session";
 
-    if (summaryCard) {
-      summaryCard.total.textContent = formatStat(cleanupTotals);
-      summaryCard.session.textContent = `+${formatStat(cleanupSessionTotals)} this session`;
+    /* Time saved hero */
+    if (timeSavedValue) {
+      timeSavedValue.textContent = formatDurationLabel(getSavedSeconds(stats, { session: isSession }));
     }
 
+    /* Cleanup total */
+    const cleanupSum = CLEANUP_STATS.reduce((sum, { key }) => {
+      const statKey = isSession ? getSessionStatKey(key) : key;
+      return sum + Number(stats[statKey] || 0);
+    }, 0);
+
+    if (cleanupTotalEl) {
+      cleanupTotalEl.textContent = formatStat(cleanupSum);
+    }
+
+    /* Individual rows */
     ALL_STATS.forEach(({ key }) => {
-      const card = statElements.get(key);
+      const card = statRowElements.get(key);
       if (!card) {
         return;
       }
 
-      card.total.textContent = formatStat(stats[key]);
-      card.session.textContent = `+${formatStat(stats[getSessionStatKey(key)])} this session`;
+      const statKey = isSession ? getSessionStatKey(key) : key;
+      card.valueEl.textContent = formatStat(stats[statKey]);
     });
+
+    /* Reset footer */
+    renderResetInfo(stats[STATS_RESET_AT_KEY]);
+  }
+
+  function formatDurationLabel(totalSeconds) {
+    const seconds = Math.max(0, Math.round(Number(totalSeconds) || 0));
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainderSeconds = seconds % 60;
+
+    if (hours > 0) {
+      return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+    }
+
+    if (minutes > 0) {
+      return remainderSeconds > 0 ? `${minutes}m ${remainderSeconds}s` : `${minutes}m`;
+    }
+
+    return `${remainderSeconds}s`;
+  }
+
+  function formatResetInfoLabel(resetAt) {
+    const timestamp = Number(resetAt || 0);
+    if (!timestamp) {
+      return "Tracking since now";
+    }
+
+    const dateStr = new Date(timestamp).toLocaleDateString(undefined, {
+      year: "numeric",
+      month: "short",
+      day: "numeric"
+    });
+
+    return `Tracking since ${dateStr}`;
+  }
+
+  function getSavedSeconds(stats, { session = false } = {}) {
+    const removalsKeySet = new Set(CLEANUP_STATS.map(({ key }) => key));
+    let totalSeconds = 0;
+
+    removalsKeySet.forEach((key) => {
+      const statKey = session ? getSessionStatKey(key) : key;
+      totalSeconds += Number(stats[statKey] || 0) * 2;
+    });
+
+    Object.entries(SAVED_TIME_WEIGHTS).forEach(([key, seconds]) => {
+      const statKey = session ? getSessionStatKey(key) : key;
+      totalSeconds += Number(stats[statKey] || 0) * seconds;
+    });
+
+    return totalSeconds;
+  }
+
+  function renderResetInfo(resetAt) {
+    if (resetInfo) {
+      resetInfo.textContent = formatResetInfoLabel(resetAt);
+    }
   }
 
   function showStatus(message, state = "info", sticky = false) {
@@ -237,8 +332,27 @@
   }
 
   async function loadStats() {
-    const stats = await chrome.storage.local.get(DEFAULT_STATS);
+    const stats = await chrome.storage.local.get(STATS_STORAGE_DEFAULTS);
+    if (!Number(stats[STATS_RESET_AT_KEY])) {
+      const initializedStats = {
+        ...stats,
+        [STATS_RESET_AT_KEY]: Date.now()
+      };
+      await chrome.storage.local.set({ [STATS_RESET_AT_KEY]: initializedStats[STATS_RESET_AT_KEY] });
+      renderStats(initializedStats);
+      return;
+    }
+
     renderStats(stats);
+  }
+
+  async function resetStats() {
+    const resetPayload = {
+      ...DEFAULT_STATS,
+      [STATS_RESET_AT_KEY]: Date.now()
+    };
+    await chrome.storage.local.set(resetPayload);
+    renderStats(resetPayload);
   }
 
   async function saveSettings() {
@@ -306,6 +420,12 @@
     });
   });
 
+  periodButtons.forEach((btn) => {
+    btn.addEventListener("click", () => {
+      setActivePeriod(btn.dataset.period);
+    });
+  });
+
   applyButton.addEventListener("click", () => {
     applySettings().catch(() => showStatus("Apply failed.", "error"));
   });
@@ -318,6 +438,22 @@
     });
   }
 
+  const aboutIcon = document.getElementById("aboutIcon");
+  if (aboutIcon) {
+    aboutIcon.addEventListener("click", () => {
+      const isEnlarged = aboutIcon.classList.toggle("fb-about-icon--enlarged");
+      aboutIcon.src = isEnlarged ? "icons/source.png" : "icons/icon128.png";
+    });
+  }
+
+  if (resetStatsButton) {
+    resetStatsButton.addEventListener("click", () => {
+      resetStats()
+        .then(() => showStatus("Activity stats reset.", "success"))
+        .catch(() => showStatus("Could not reset activity stats.", "error"));
+    });
+  }
+
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== "local") {
       return;
@@ -325,7 +461,7 @@
 
     let hasStatChange = false;
 
-    Object.keys(DEFAULT_STATS).forEach((key) => {
+    Object.keys(STATS_STORAGE_DEFAULTS).forEach((key) => {
       if (changes[key]) {
         hasStatChange = true;
       }

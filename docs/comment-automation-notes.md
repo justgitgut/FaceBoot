@@ -51,6 +51,7 @@ The intended order is:
   - the visible label changes to `All comments`
   - the comment-ordering menu is actually detected
 - Menu item selection should stay narrowly targeted to the active popup.
+- Any filter-change stat increment must receive the runtime `deps` object through both the immediate-selection and delayed-retry paths; otherwise the UI can switch correctly while the counter stays at zero.
 
 ## Expansion Rules
 
@@ -85,3 +86,4 @@ After touching comment automation, verify all of the following:
 7. A feed photo that rewrites the URL to `/photo/` does not trigger random post/dialog reopen behavior before inline comments appear.
 8. On a `/reel/` or Reels route, comment automation resolves only the active reel surface and does not reopen a stale post dialog.
 9. If the active reel surface is ambiguous, comment automation does nothing.
+10. `Filter changes` increments only when the sorter actually transitions to `All comments`.

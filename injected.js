@@ -9,6 +9,10 @@
 
   const BLOCK_MSG = "[FaceBoot] Blocked forced refresh call.";
   const SUSPICIOUS_EVENT_TYPES = /^(visibilitychange|focus|blur|pageshow|resume|popstate|hashchange)$/;
+  const RESUME_SUPPRESSION_WINDOW_MS = 5000;
+  let wasPageHidden = false;
+  let reallyHidden = false;
+  let resumeSuppressionUntil = 0;
 
   function isSuspiciousNavigationSource(source) {
     return /location\.reload\s*\(|\.reload\s*\(|history\.go\s*\(\s*0\s*\)|location\.(assign|replace)\s*\(|window\.location\s*=|document\.location\s*=|location\.href\s*=|document\.URL\s*=|visibilitystate|document\.hidden|popstate|hashchange/i.test(source);
@@ -280,13 +284,159 @@
     );
   }
 
+  function beginResumeSuppression(now = Date.now(), durationMs = RESUME_SUPPRESSION_WINDOW_MS) {
+    resumeSuppressionUntil = Math.max(resumeSuppressionUntil, now + durationMs);
+  }
+
+  function shouldSuppressResumeLifecycleEvent(event) {
+    const eventType = String(event?.type || "").toLowerCase();
+    const now = Date.now();
+
+    if (eventType === "visibilitychange") {
+      /* We spoofed document.visibilityState, so use the raw event flow:
+         the browser fires visibilitychange in alternating hidden→visible
+         transitions. Track with a boolean toggle. */
+      if (!reallyHidden) {
+        /* Transition: visible → hidden */
+        reallyHidden = true;
+        wasPageHidden = true;
+        return true; /* suppress so listeners don't see the hidden transition */
+      }
+
+      /* Transition: hidden → visible */
+      reallyHidden = false;
+      if (wasPageHidden) {
+        wasPageHidden = false;
+        beginResumeSuppression(now);
+        return true;
+      }
+
+      return false;
+    }
+
+    if (eventType === "pageshow") {
+      if (event?.persisted === true || wasPageHidden || resumeSuppressionUntil > now) {
+        wasPageHidden = false;
+        beginResumeSuppression(now, 1000);
+        return true;
+      }
+
+      return false;
+    }
+
+    if (eventType === "focus" || eventType === "resume") {
+      if (resumeSuppressionUntil > now) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function suppressResumeLifecycleEvent(event) {
+    if (!shouldSuppressResumeLifecycleEvent(event)) {
+      return;
+    }
+
+    try {
+      event.stopImmediatePropagation();
+      event.stopPropagation();
+      event.preventDefault();
+      console.debug(BLOCK_MSG, "resume-lifecycle", event.type);
+      reportStat("preventedRefreshes", 1);
+    } catch (_error) {
+      // Ignore if the browser does not allow cancelling a given lifecycle event.
+    }
+  }
+
+  function guardLocationHrefSetter() {
+    try {
+      const hrefDescriptor = Object.getOwnPropertyDescriptor(Location.prototype, "href");
+      if (!hrefDescriptor || typeof hrefDescriptor.set !== "function") {
+        return;
+      }
+
+      Object.defineProperty(Location.prototype, "href", {
+        configurable: true,
+        enumerable: true,
+        get: hrefDescriptor.get,
+        set(value) {
+          if (isSamePageNavigationTarget(value)) {
+            console.debug(BLOCK_MSG, "location.href setter", value);
+            reportStat("preventedRefreshes", 1);
+            return;
+          }
+
+          hrefDescriptor.set.call(this, value);
+        }
+      });
+    } catch (_error) {
+      // Ignore if browser blocks overriding location.href.
+    }
+  }
+
+  function spoofVisibilityState() {
+    try {
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return "visible";
+        }
+      });
+
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return false;
+        }
+      });
+
+      Object.defineProperty(document, "webkitVisibilityState", {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return "visible";
+        }
+      });
+
+      Object.defineProperty(document, "webkitHidden", {
+        configurable: true,
+        enumerable: true,
+        get() {
+          return false;
+        }
+      });
+    } catch (_error) {
+      // Ignore if browser blocks overriding visibility properties.
+    }
+
+    try {
+      const originalHasFocus = Document.prototype.hasFocus;
+      Document.prototype.hasFocus = function () {
+        return true;
+      };
+      Document.prototype.hasFocus.__facebootOriginal = originalHasFocus;
+    } catch (_error) {
+      // Ignore if browser blocks overriding hasFocus.
+    }
+  }
+
   guardLocationReload();
   guardLocationNavigationMethods();
+  guardLocationHrefSetter();
   guardHistoryReloads();
   guardSuspiciousLifecycleListeners();
   guardSuspiciousEventHandlerProperties();
   guardStringTimeoutReload();
+  spoofVisibilityState();
   removeMetaRefresh();
+
+  document.addEventListener("visibilitychange", suppressResumeLifecycleEvent, true);
+  window.addEventListener("pageshow", suppressResumeLifecycleEvent, true);
+  window.addEventListener("focus", suppressResumeLifecycleEvent, true);
+  window.addEventListener("resume", suppressResumeLifecycleEvent, true);
 
   // Block reload/navigation logic triggered by online/offline events
   function blockOnlineOfflineReload(e) {

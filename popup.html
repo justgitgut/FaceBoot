@@ -118,12 +118,42 @@
 
       <section class="fb-panel" id="activityPanel" data-tab-panel hidden aria-label="Activity tab">
         <section class="fb-card fb-card--activity" aria-label="FaceBoot activity">
-          <h2 class="fb-section-title">Activity</h2>
-          <div class="fb-activity-summary" id="statsSummary"></div>
-          <details class="fb-activity-details" open>
-            <summary>Detailed activity</summary>
-            <div class="stats-grid" id="statsGrid"></div>
-          </details>
+          <div class="fb-section-header">
+            <h2 class="fb-section-title">Activity</h2>
+            <button id="resetStatsButton" type="button" class="fb-btn fb-btn--inline">Reset</button>
+          </div>
+
+          <div class="fb-period-bar">
+            <button type="button" class="fb-period-btn is-active" data-period="session">This Session</button>
+            <button type="button" class="fb-period-btn" data-period="total">All Time</button>
+          </div>
+
+          <div class="fb-time-hero">
+            <img class="fb-time-hero-icon" src="icons/book.gif" alt="" aria-hidden="true" />
+            <div class="fb-time-hero-text">
+              <strong class="fb-time-hero-value" id="timeSavedValue">0s</strong>
+              <span class="fb-time-hero-label">time saved</span>
+            </div>
+          </div>
+
+          <div class="fb-stat-group">
+            <div class="fb-stat-group-header">
+              <span class="fb-stat-group-title">Feed Cleanup</span>
+              <strong class="fb-stat-group-total" id="cleanupTotal">0</strong>
+            </div>
+            <div class="fb-stat-rows" id="cleanupRows"></div>
+          </div>
+
+          <div class="fb-stat-group">
+            <div class="fb-stat-group-header">
+              <span class="fb-stat-group-title">Automated Actions</span>
+            </div>
+            <div class="fb-stat-rows" id="activityRows"></div>
+          </div>
+
+          <div class="fb-reset-footer" id="resetFooter">
+            <span id="resetInfo">Tracking since now</span>
+          </div>
         </section>
       </section>
 
@@ -131,7 +161,7 @@
         <section class="fb-card fb-card--about">
           <h2 class="fb-section-title">About</h2>
           <div class="fb-about">
-            <img class="fb-about-icon" src="icons/icon128.png" alt="FaceBoot icon" width="112" height="112" />
+            <img class="fb-about-icon" id="aboutIcon" src="icons/icon128.png" alt="FaceBoot icon" width="112" height="112" />
             <h3 class="fb-about-title">FaceBoot</h3>
             <p class="fb-about-copy">FaceBoot keeps Facebook focused on the feed by removing noisy modules, expanding useful content automatically, and offering optional anti-refresh protection.</p>
             <p class="fb-about-copy">Use Settings to control what gets cleaned up. Use Activity to inspect what the extension has removed or expanded during this browser session.</p>

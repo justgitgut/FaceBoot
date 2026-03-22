@@ -12,6 +12,7 @@
 
   const ACTIVITY_STATS = [
     { key: "preventedRefreshes", label: "Refreshes blocked" },
+    { key: "commentFilterChanges", label: "Filter changes" },
     { key: "expandedPosts", label: "Posts expanded" },
     { key: "expandedComments", label: "Comment actions" }
   ];

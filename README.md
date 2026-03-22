@@ -29,13 +29,10 @@ Chrome extension that declutters your Facebook feed, auto-expands posts and visi
 1. Click the extension icon in Chrome.
 2. Open **FaceBoot** popup settings.
 3. Review live stats in the popup header:
-	- Reels removed
-	- Follow posts removed
-	- Join posts removed
-	- Refreshes prevented
-	- Comment actions
-	- Posts expanded
-   - Each stat shows total and session count (session resets on page reload)
+   - Use the Activity tab to switch between `This Session` and `All Time`
+   - Review grouped counters for Feed Cleanup and Automated Actions
+   - Review estimated time saved and the current tracking start date
+   - Reset all accumulated stats with the `Reset` button in the Activity header
 4. Toggle features:
 	- Enable anti-refresh protection
 	- Enable feed cleanup
@@ -61,12 +58,13 @@ The extension auto-refreshes open Facebook tabs on install/update so filters app
 - Facebook changes DOM markup frequently; selectors may need occasional updates.
 - Auto-click behavior is scoped to visible post/dialog contexts. You can tune the matching patterns in `content.js`.
 - The extension stores settings and aggregate counters locally and does not send Facebook data to external servers.
+- Session counters reset once per browser startup or extension restart; they do not reset on ordinary Facebook page loads.
 
 ## How It Works
 
-- `injected.js`: runs in page context and blocks common refresh triggers (`location.reload`, string-based timer refresh calls, and meta refresh tags).
+- `injected.js`: runs in page context and blocks common refresh triggers (`location.reload`, string-based timer refresh calls, meta refresh tags, and resume lifecycle events that try to refresh when a background tab becomes active again).
 - `content.js`: observes the feed and post dialogs, normalizes supported Facebook feed/group URLs, hides unwanted feed content, expands posts, and coordinates modal comment automation.
-- `popup.html` + `popup.js`: UI and storage-backed settings for feature toggles and blocked labels.
+- `popup.html` + `popup.js`: UI and storage-backed settings for feature toggles, grouped activity stats, period switching, and saved-time estimates.
 - `manifest.json`: MV3 config and script registration.
 
 ## Automation Boundary

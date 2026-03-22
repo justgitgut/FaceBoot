@@ -1127,7 +1127,7 @@
       - avoid long cooldowns or reopen loops now that the correct row is found
       If selection starts hitting Newest again, inspect the label extraction before
       changing anything else. */
-    function selectAllCommentsFromOpenMenu(surface, toggle, state, toggleText, { respectCooldown = true } = {}) {
+    function selectAllCommentsFromOpenMenu(surface, toggle, state, toggleText, deps = {}, { respectCooldown = true } = {}) {
     const openMenu = getCommentSortMenu(surface, toggle);
     if (!openMenu) {
       return "not-open";
@@ -1177,6 +1177,10 @@
 
     state.lastSelectionAt = now;
     state.interactionUntil = now + 500;
+     /* Keep the stat increment here, after a real menu-item activation succeeds.
+       Counting earlier would over-report failed opens, and dropping deps anywhere in
+       this call chain makes the UI switch without ever recording the filter change. */
+     queueStatIncrement(deps, "commentFilterChanges");
     debugCommentAutomation("filter-selection-dispatched", {
       target: describeElement(surface),
       toggleText,
@@ -1191,7 +1195,7 @@
       after opening the sorter. The follow-up runs once after a short delay and only
       acts if the popup is still open. Reintroducing reopen loops here will bring back
       the old flicker and UI hijacking problems. */
-    function scheduleAllCommentsSelectionRetry(surface, delay = 90) {
+    function scheduleAllCommentsSelectionRetry(surface, deps = {}, delay = 90) {
     if (!(surface instanceof Element)) {
       return;
     }
@@ -1223,7 +1227,9 @@
       }
 
       if (toggle.getAttribute("aria-expanded") === "true") {
-        selectAllCommentsFromOpenMenu(surface, toggle, state, currentToggleText, {
+        /* The delayed retry must carry deps too, otherwise filter changes selected on
+           the second pass stop incrementing even though the sorter visibly changes. */
+        selectAllCommentsFromOpenMenu(surface, toggle, state, currentToggleText, deps, {
           respectCooldown: false
         });
       }
@@ -1240,7 +1246,7 @@
       used to carry aggressive retries, suspension windows, and reopen heuristics, but
       those were only compensating for incorrect item matching and wrong click targets.
       If behavior regresses, prefer fixing popup/menu detection before adding retries. */
-    function ensureAllCommentsFilter(surface) {
+    function ensureAllCommentsFilter(surface, deps = {}) {
     if (!(surface instanceof Element)) {
       return "unavailable";
     }
@@ -1268,7 +1274,7 @@
       return "already";
     }
 
-    const immediateSelectionResult = selectAllCommentsFromOpenMenu(surface, toggle, state, toggleText);
+    const immediateSelectionResult = selectAllCommentsFromOpenMenu(surface, toggle, state, toggleText, deps);
     if (immediateSelectionResult !== "not-open") {
       return immediateSelectionResult;
     }
@@ -1280,7 +1286,7 @@
 
     if (toggleExpanded) {
       if (!state.retryTimerId) {
-        scheduleAllCommentsSelectionRetry(surface, 70);
+        scheduleAllCommentsSelectionRetry(surface, deps, 70);
       }
       debugCommentAutomation("filter-toggle-already-open", {
         target: describeElement(surface),
@@ -1291,7 +1297,7 @@
 
     if (state.interactionUntil > now) {
       if (!state.retryTimerId) {
-        scheduleAllCommentsSelectionRetry(surface, 70);
+        scheduleAllCommentsSelectionRetry(surface, deps, 70);
       }
       debugCommentAutomation("filter-interaction-pending", {
         target: describeElement(surface),
@@ -1318,7 +1324,7 @@
 
     state.lastToggleAt = now;
     state.interactionUntil = now + 360;
-    scheduleAllCommentsSelectionRetry(surface, 90);
+    scheduleAllCommentsSelectionRetry(surface, deps, 90);
     debugCommentAutomation("filter-toggle-opened", {
       target: describeElement(surface),
       toggleText
@@ -1936,7 +1942,7 @@
       return true;
     }
 
-    const filterResult = ensureAllCommentsFilter(target);
+    const filterResult = ensureAllCommentsFilter(target, deps);
     debugCommentAutomation("run-automation-filter", {
       target: describeElement(target),
       filterResult
