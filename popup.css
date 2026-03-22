@@ -61,6 +61,12 @@ body {
   min-width: 0;
 }
 
+.fb-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+}
+
 .fb-tabs {
   display: flex;
   gap: 1px;
@@ -120,6 +126,7 @@ body {
   color: #eef3ff;
   letter-spacing: 0.08em;
   text-transform: uppercase;
+  white-space: nowrap;
 }
 
 /* ── Body ──────────────────────────────────────────────── */
