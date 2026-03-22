@@ -1,11 +1,12 @@
 # FaceBoot
 
-Chrome extension that declutters your Facebook feed, auto-expands posts and comment threads, and offers optional anti-refresh protection.
+Chrome extension that declutters your Facebook feed, auto-expands posts and visible comment threads, keeps supported feed and group URLs chronological, and offers optional anti-refresh protection.
 
 - Hides Reels, Stories, sponsored posts, People You May Know, and Follow/Join feed cards.
-- Auto-expands truncated posts and deep comment threads.
+- Auto-expands truncated posts and visible comment/reply threads.
+- Switches the active post dialog to `All comments` before expanding visible comment threads.
 - Blocks Facebook's forced tab reload when you return to the page.
-- Optionally lands you directly on the All Feed view when opening Facebook.
+- Optionally lands you directly on the All Feed view with chronological sorting when opening Facebook.
 
 ## Install (Developer Mode)
 
@@ -46,7 +47,9 @@ Chrome extension that declutters your Facebook feed, auto-expands posts and comm
 	- Auto-expand comments
 5. Click **Apply** to save and refresh Facebook tabs.
 6. If **Go directly to feeds on activation** is enabled, Apply will open Facebook tabs on:
-	- `https://www.facebook.com/?filter=all&sk=h_chr`
+	- `https://www.facebook.com/?filter=all&sk=h_chr&sorting_setting=CHRONOLOGICAL`
+
+When you open a root group page such as `https://www.facebook.com/groups/<group-id>`, FaceBoot also appends `sorting_setting=CHRONOLOGICAL` to the URL.
 
 Note: anti-refresh protection is off by default and should be treated as an optional compatibility feature.
 
@@ -56,15 +59,26 @@ The extension auto-refreshes open Facebook tabs on install/update so filters app
 
 - This works on `www.facebook.com` and `web.facebook.com`.
 - Facebook changes DOM markup frequently; selectors may need occasional updates.
-- Auto-click behavior can be aggressive on busy pages. You can tune the regex patterns in `content.js`.
+- Auto-click behavior is scoped to visible post/dialog contexts. You can tune the matching patterns in `content.js`.
 - The extension stores settings and aggregate counters locally and does not send Facebook data to external servers.
 
 ## How It Works
 
 - `injected.js`: runs in page context and blocks common refresh triggers (`location.reload`, string-based timer refresh calls, and meta refresh tags).
-- `content.js`: observes the feed and post dialogs, hides Reels/Join/Follow content based on separate toggles, clicks comment expansion controls, and attempts to select `All comments`.
+- `content.js`: observes the feed and post dialogs, normalizes supported Facebook feed/group URLs, hides unwanted feed content, expands posts, and coordinates modal comment automation.
 - `popup.html` + `popup.js`: UI and storage-backed settings for feature toggles and blocked labels.
 - `manifest.json`: MV3 config and script registration.
+
+## Automation Boundary
+
+- Feed cleanup removes unwanted content from the DOM.
+- Post expansion clicks visible `See more`-style controls.
+- Comment automation remains scoped to the current post context.
+- In already-open post dialogs, the extension opens the comment-ordering popup for the active post, selects `All comments`, and then expands visible comment/reply controls.
+- Feed cleanup and post expansion still do not open random posts or unrelated menus.
+
+See [docs/architecture-v2.md](docs/architecture-v2.md) for the current architecture boundary.
+See [docs/regression-checklist.md](docs/regression-checklist.md) for the recommended validation checklist after automation changes.
 
 ## Permissions
 

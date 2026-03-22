@@ -8,6 +8,11 @@
   window.__facebootNoRefreshInstalled = true;
 
   const BLOCK_MSG = "[FaceBoot] Blocked forced refresh call.";
+  const SUSPICIOUS_EVENT_TYPES = /^(visibilitychange|focus|blur|pageshow|resume|popstate|hashchange)$/;
+
+  function isSuspiciousNavigationSource(source) {
+    return /location\.reload\s*\(|\.reload\s*\(|history\.go\s*\(\s*0\s*\)|location\.(assign|replace)\s*\(|window\.location\s*=|document\.location\s*=|location\.href\s*=|document\.URL\s*=|visibilitystate|document\.hidden|popstate|hashchange/i.test(source);
+  }
 
   function safeUrl(input) {
     try {
@@ -38,7 +43,7 @@
 
     if (typeof handler === "function") {
       const source = Function.prototype.toString.call(handler);
-      return /location\.reload\s*\(|\.reload\s*\(|history\.go\s*\(\s*0\s*\)|location\.(assign|replace)\s*\(/i.test(source);
+      return isSuspiciousNavigationSource(source);
     }
 
     return false;
@@ -57,7 +62,7 @@
   }
 
   function isSuspiciousLifecycleListener(type, listener) {
-    if (!/^(visibilitychange|focus|blur|pageshow|resume)$/.test(String(type))) {
+    if (!SUSPICIOUS_EVENT_TYPES.test(String(type))) {
       return false;
     }
 
@@ -66,22 +71,81 @@
       return false;
     }
 
-    return /location\.reload\s*\(|\.reload\s*\(|history\.go\s*\(\s*0\s*\)|location\.(assign|replace)\s*\(|window\.location\s*=|document\.location\s*=|visibilitystate|document\.hidden/i.test(source);
+    return isSuspiciousNavigationSource(source);
+  }
+
+  function guardSuspiciousEventHandlerProperties() {
+    const targets = [window, document, document.documentElement, document.body].filter(Boolean);
+    const eventProperties = [
+      "onvisibilitychange",
+      "onfocus",
+      "onblur",
+      "onpageshow",
+      "onresume",
+      "onpopstate",
+      "onhashchange"
+    ];
+
+    for (const target of targets) {
+      for (const propertyName of eventProperties) {
+        const targetPrototype = Object.getPrototypeOf(target);
+        const descriptor =
+          Object.getOwnPropertyDescriptor(target, propertyName) ||
+          Object.getOwnPropertyDescriptor(targetPrototype, propertyName);
+
+        if (!descriptor || typeof descriptor.set !== "function" || typeof descriptor.get !== "function") {
+          continue;
+        }
+
+        try {
+          Object.defineProperty(target, propertyName, {
+            configurable: true,
+            enumerable: descriptor.enumerable ?? true,
+            get() {
+              return descriptor.get.call(this);
+            },
+            set(value) {
+              if (typeof value === "function" && isSuspiciousLifecycleListener(propertyName.slice(2), value)) {
+                console.debug(BLOCK_MSG, "event-handler", propertyName);
+                reportStat("preventedRefreshes", 1);
+                descriptor.set.call(this, null);
+                return;
+              }
+
+              descriptor.set.call(this, value);
+            }
+          });
+        } catch (_error) {
+          // Ignore when event handler properties are not configurable.
+        }
+      }
+    }
   }
 
   function guardLocationReload() {
-    try {
-      const originalReload = window.location.reload.bind(window.location);
-      window.location.reload = function (...args) {
-        console.debug(BLOCK_MSG, args);
-        reportStat("preventedRefreshes", 1);
-        return undefined;
-      };
+    const wrapReload = (holder, methodName) => {
+      try {
+        const original = holder?.[methodName];
+        if (typeof original !== "function") {
+          return;
+        }
 
-      // Keep a reference in case another script checks function identity.
-      window.location.reload.__facebootOriginal = originalReload;
-    } catch (_error) {
-      // Ignore if browser blocks overriding location methods.
+        holder[methodName] = function (...args) {
+          console.debug(BLOCK_MSG, methodName, args);
+          reportStat("preventedRefreshes", 1);
+          return undefined;
+        };
+
+        holder[methodName].__facebootOriginal = original;
+      } catch (_error) {
+        // Ignore if browser blocks overriding location methods.
+      }
+    };
+
+    wrapReload(window.location, "reload");
+
+    if (window.Location && window.Location.prototype) {
+      wrapReload(window.Location.prototype, "reload");
     }
   }
 
@@ -220,12 +284,53 @@
   guardLocationNavigationMethods();
   guardHistoryReloads();
   guardSuspiciousLifecycleListeners();
+  guardSuspiciousEventHandlerProperties();
   guardStringTimeoutReload();
   removeMetaRefresh();
+
+  // Block reload/navigation logic triggered by online/offline events
+  function blockOnlineOfflineReload(e) {
+    try {
+      e.stopImmediatePropagation();
+      e.stopPropagation();
+      e.preventDefault();
+      console.debug(BLOCK_MSG, "blocked online/offline event reload", e.type);
+      reportStat("preventedRefreshes", 1);
+    } catch {}
+  }
+  window.addEventListener("online", blockOnlineOfflineReload, true);
+  window.addEventListener("offline", blockOnlineOfflineReload, true);
+
+  // Override window.ononline/onoffline
+  try {
+    Object.defineProperty(window, "ononline", {
+      configurable: true,
+      enumerable: true,
+      get() { return null; },
+      set(fn) {
+        if (typeof fn === "function") {
+          console.debug(BLOCK_MSG, "blocked window.ononline assignment");
+          reportStat("preventedRefreshes", 1);
+        }
+      }
+    });
+    Object.defineProperty(window, "onoffline", {
+      configurable: true,
+      enumerable: true,
+      get() { return null; },
+      set(fn) {
+        if (typeof fn === "function") {
+          console.debug(BLOCK_MSG, "blocked window.onoffline assignment");
+          reportStat("preventedRefreshes", 1);
+        }
+      }
+    });
+  } catch {}
 
   const observer = new MutationObserver(() => removeMetaRefresh());
   observer.observe(document.documentElement || document, {
     childList: true,
     subtree: true
   });
+
 })();

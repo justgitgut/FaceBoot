@@ -1,7 +1,7 @@
 (() => {
   "use strict";
 
-  const FEEDS_URL = "https://www.facebook.com/?filter=all&sk=h_chr";
+  const FEEDS_URL = "https://www.facebook.com/?filter=all&sk=h_chr&sorting_setting=CHRONOLOGICAL";
   const FACEBOOK_URL_PATTERNS = [
     "*://www.facebook.com/*",
     "*://web.facebook.com/*"
@@ -191,7 +191,7 @@
     const syncSettings = syncResult.status === "fulfilled" ? syncResult.value : {};
     const localSettings = localResult.status === "fulfilled" ? localResult.value : {};
 
-    // Prefer sync when available, fallback to local for reliability.
+    /* Prefer sync when available, fallback to local for reliability. */
     return {
       ...DEFAULT_SETTINGS,
       ...localSettings,
@@ -250,7 +250,7 @@
           await chrome.tabs.reload(tab.id);
         }
       } catch (_error) {
-        // Ignore per-tab refresh failures so saved settings are not lost.
+        /* Ignore per-tab refresh failures so saved settings are not lost. */
       }
     }
   }
@@ -323,7 +323,7 @@
 
     if (hasStatChange) {
       loadStats().catch(() => {
-        // Ignore read failures.
+        /* Ignore read failures. */
       });
     }
   });
