@@ -6,8 +6,10 @@ applyTo: "content.js, content-comments.js, content-feed.js, content-utils.js"
 
 # Notification Automation Guardrails
 
-- Before modifying a matched file, first describe the planned operations and ask the user to validate them.
+- Read-only investigation is allowed without approval.
+- Before making a code or behavior-changing edit in a matched file, first describe the planned operations and ask the user to validate them.
 - If the user wants to add precision, wait for that clarification before editing.
+- Documentation-only changes do not require this approval rule unless they are bundled with code or behavior changes.
 - Treat notification-driven navigation as a high-risk regression area.
 - Never allow document-level fallback onto stale feed surfaces during notification navigation.
 - Preserve notification suppression across:
