@@ -1,5 +1,11 @@
-# FaceBoot icon generator
-# Usage: place the source image at icons\source.jpg or icons\source.png, then run this script once.
+﻿# Faceberg icon generator
+#
+# IMPORTANT: logo.png is the full-detail brand logo and must NEVER be used
+# as the source for icon generation. The sized icons (icon16/32/48/128.png)
+# use a separate simplified design optimised for small sizes.
+#
+# Use faceberg_master_1024.png as the source, or pass -SourceFile explicitly.
+# Usage: .\make-icons.ps1 -SourceFile icons\faceberg_master_1024.png
 # Requires Windows with .NET (built-in on all modern Windows installs).
 
 param(
@@ -9,16 +15,15 @@ param(
 $sizes = @(16, 32, 48, 128)
 
 if ([string]::IsNullOrWhiteSpace($SourceFile)) {
-    $candidateSources = @(
-        "$PSScriptRoot\icons\source.jpg",
-        "$PSScriptRoot\icons\source.png"
-    )
+    $candidateSource = "$PSScriptRoot\icons\faceberg_master_1024.png"
 
-    $SourceFile = $candidateSources | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if (Test-Path $candidateSource) {
+        $SourceFile = $candidateSource
+    }
 }
 
-if (-not (Test-Path $SourceFile)) {
-    Write-Error "Source image not found. Save the FaceBoot logo image as icons\source.jpg or icons\source.png first."
+if ([string]::IsNullOrWhiteSpace($SourceFile) -or -not (Test-Path $SourceFile)) {
+    Write-Error "Source image not found. Provide the icon master via -SourceFile. Do NOT use logo.png."
     exit 1
 }
 
