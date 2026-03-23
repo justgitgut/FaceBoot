@@ -1051,7 +1051,11 @@
       2. try native click first,
       3. fallback to mouse/pointer-style dispatch only.
       Do not add Enter/keyboard dispatch back into this path unless Facebook changes,
-      because it previously caused false positives and inconsistent popup flicker. */
+      because it previously caused false positives and inconsistent popup flicker.
+      Do not add synchronous DOM-state checks after click() — Facebook defers React
+      re-renders asynchronously, so any aria-state check immediately after dispatch
+      always reflects the pre-click state and silently blocks the selection. Actual
+      verification is handled by the 90 ms follow-up in scheduleAllCommentsSelectionRetry. */
     function activateMenuItem(item) {
     if (!(item instanceof Element) || !isVisible(item)) {
       return false;
@@ -1059,38 +1063,6 @@
 
     const candidates = getMenuItemActivationCandidates(item);
     const selectedItemBefore = getMenuItemDebugState(item);
-    const surface = item.closest('[role="dialog"], div[role="article"], [data-pagelet], main, [role="main"], [role="complementary"]');
-    const previousToggle = surface instanceof Element ? getCommentSorterToggle(surface) : null;
-    const previousToggleText = normalizeText(previousToggle?.textContent || previousToggle?.getAttribute?.("aria-label"));
-
-    function didSelectionApply() {
-      if (!(surface instanceof Element)) {
-        return false;
-      }
-
-      const currentToggle = getCommentSorterToggle(surface);
-      const currentToggleText = normalizeText(currentToggle?.textContent || currentToggle?.getAttribute?.("aria-label"));
-      if (matchesAllCommentsText(currentToggleText)) {
-        return true;
-      }
-
-      const openMenu = getCommentSortMenu(surface, currentToggle);
-      if (openMenu) {
-        const selectedAllCommentsItem = openMenu.items.find((candidate) => {
-          return matchesAllCommentsText(getMenuItemMatchText(candidate)) && isMenuItemSelected(candidate);
-        });
-
-        if (selectedAllCommentsItem) {
-          return true;
-        }
-      }
-
-      if (previousToggleText && currentToggleText && currentToggleText !== previousToggleText) {
-        return matchesAllCommentsText(currentToggleText);
-      }
-
-      return false;
-    }
 
     for (const candidate of candidates) {
       debugCommentAutomation("filter-selection-attempt", {
@@ -1101,9 +1073,7 @@
       try {
         if (typeof candidate.click === "function") {
           candidate.click();
-          if (didSelectionApply()) {
-            return true;
-          }
+          return true;
         }
       } catch {
         /* Ignore native click failures. */
@@ -1113,7 +1083,7 @@
         dispatchKeyboard: false,
         dispatchSyntheticClick: true,
         dispatchNativeClick: false
-      }) && didSelectionApply()) {
+      })) {
         return true;
       }
 
@@ -1121,7 +1091,7 @@
         dispatchKeyboard: false,
         dispatchSyntheticClick: false,
         dispatchNativeClick: true
-      }) && didSelectionApply()) {
+      })) {
         return true;
       }
     }
@@ -1226,7 +1196,8 @@
         lastToggleAt: 0,
         lastSelectionAt: 0,
         interactionUntil: 0,
-        retryTimerId: 0
+        retryTimerId: 0,
+        menuWatcher: null
       };
       commentFilterAttemptState.set(surface, state);
     }
@@ -1243,6 +1214,74 @@
     state.retryTimerId = 0;
   }
 
+  function clearMenuWatcher(state) {
+    if (!state?.menuWatcher) {
+      return;
+    }
+
+    state.menuWatcher.stop();
+    state.menuWatcher = null;
+  }
+
+  /* Returns true when the open menu is still populating — either an explicit
+     loading indicator is present or no interactive rows have appeared yet.
+     Used to avoid clicking while Facebook is fetching the menu contents. */
+  function hasMenuLoadingIndicator(menu) {
+    if (!(menu instanceof Element)) {
+      return false;
+    }
+
+    if (menu.querySelector('[role="progressbar"]')) {
+      return true;
+    }
+
+    return !menu.querySelector('[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]');
+  }
+
+  /* Calls onReady once the menu has interactive rows and no loading spinner.
+     Uses a MutationObserver so it fires on the exact DOM mutation rather than
+     a polling loop. Falls back to onReady after maxWaitMs to avoid stalling. */
+  function watchForMenuReady(menu, onReady, maxWaitMs = 2000) {
+    if (!(menu instanceof Element) || !hasMenuLoadingIndicator(menu)) {
+      onReady();
+      return { stop() {} };
+    }
+
+    let stopped = false;
+
+    function stop() {
+      if (stopped) {
+        return;
+      }
+
+      stopped = true;
+      observer.disconnect();
+      window.clearTimeout(timerId);
+    }
+
+    function check() {
+      if (!stopped && !hasMenuLoadingIndicator(menu)) {
+        stop();
+        onReady();
+      }
+    }
+
+    const observer = new MutationObserver(check);
+    observer.observe(menu, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["role", "aria-busy", "hidden"]
+    });
+
+    const timerId = window.setTimeout(() => {
+      stop();
+      onReady();
+    }, maxWaitMs);
+
+    return { stop };
+  }
+
     /* This is the core "choose All comments" step.
       Important constraints from debugging:
       - match against getMenuItemMatchText(), not full textContent
@@ -1255,6 +1294,17 @@
     const openMenu = getCommentSortMenu(surface, toggle);
     if (!openMenu) {
       return "not-open";
+    }
+
+    /* Guard against mutation-watcher-driven re-entry while the menu is still
+       loading (e.g. items present but a spinner is visible). Return "pending"
+       so the caller blocks expansion and waits for the watcher to fire. */
+    if (hasMenuLoadingIndicator(openMenu.menu)) {
+      debugCommentAutomation("filter-menu-loading", {
+        target: describeElement(surface),
+        toggleText
+      });
+      return "pending";
     }
 
     const allCommentsItem = openMenu.items.find((item) => {
@@ -1326,6 +1376,7 @@
 
     const state = getCommentFilterState(surface);
     clearCommentFilterRetry(state);
+    clearMenuWatcher(state);
     state.interactionUntil = Date.now() + Math.max(delay + 240, 360);
 
     state.retryTimerId = window.setTimeout(() => {
@@ -1355,11 +1406,57 @@
       }
 
       if (toggle.getAttribute("aria-expanded") === "true") {
-        /* The delayed retry must carry deps too, otherwise filter changes selected on
-           the second pass stop incrementing even though the sorter visibly changes. */
-        selectAllCommentsFromOpenMenu(surface, toggle, state, currentToggleText, deps, {
-          respectCooldown: false
-        });
+        /* Find the open menu element even if it has no rows yet (loading state).
+           getCommentSortMenu requires items, so fall back to a raw DOM query. */
+        const openMenu = getCommentSortMenu(surface, toggle);
+        const menuElement = openMenu?.menu ||
+          [...document.querySelectorAll('[role="menu"]')].find((m) => isVisible(m)) ||
+          null;
+
+        if (menuElement && hasMenuLoadingIndicator(menuElement)) {
+          /* Menu is open but content is still loading (spinner visible, no rows yet).
+             Set up a targeted MutationObserver that fires once items appear so we
+             click exactly once at the right moment — no polling loop needed. */
+          state.interactionUntil = Date.now() + 2500;
+          state.menuWatcher = watchForMenuReady(menuElement, () => {
+            state.menuWatcher = null;
+            if (shouldSuppressAutomation(deps) || !surface.isConnected || !isVisible(surface)) {
+              return;
+            }
+
+            const readyToggle = getCommentSorterToggle(surface);
+            if (!(readyToggle instanceof Element)) {
+              return;
+            }
+
+            const readyToggleText = normalizeText(readyToggle.textContent || readyToggle.getAttribute("aria-label"));
+            if (matchesAllCommentsText(readyToggleText)) {
+              return;
+            }
+
+            state.interactionUntil = 0;
+            selectAllCommentsFromOpenMenu(surface, readyToggle, state, readyToggleText, deps, {
+              respectCooldown: false
+            });
+          });
+          debugCommentAutomation("filter-menu-waiting-for-load", {
+            target: describeElement(surface),
+            toggleText: currentToggleText
+          });
+        } else {
+          /* The delayed retry must carry deps too, otherwise filter changes selected on
+             the second pass stop incrementing even though the sorter visibly changes. */
+          selectAllCommentsFromOpenMenu(surface, toggle, state, currentToggleText, deps, {
+            respectCooldown: false
+          });
+        }
+      } else {
+        /* Popup closed without the toggle reading "All comments" — the click was
+           dispatched but React did not apply the selection (e.g. wrong hit-target or
+           transient race). Reset state so the next mutation-watcher pass can
+           immediately open the toggle and retry rather than waiting out interactionUntil. */
+        state.interactionUntil = 0;
+        state.lastToggleAt = 0;
       }
     }, delay);
   }
