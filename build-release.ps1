@@ -37,7 +37,8 @@ $includePaths = @(
   "icons\icon32.png",
   "icons\icon48.png",
   "icons\icon128.png",
-  "icons\logo.png"
+  "icons\logo.png",
+  "icons\book.gif"
 )
 
 New-Item -ItemType Directory -Force -Path $distDir | Out-Null
