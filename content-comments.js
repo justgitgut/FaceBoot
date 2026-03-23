@@ -507,6 +507,87 @@
     return /notifications|messenger|search|create post/i.test(dialogLabel);
   }
 
+  function elementHasNotificationLabel(element) {
+    if (!(element instanceof Element)) {
+      return false;
+    }
+
+    const ownLabel = normalizeText(element.getAttribute("aria-label"));
+    if (/\bnotifications?\b/.test(ownLabel)) {
+      return true;
+    }
+
+    const ownText = normalizeText(element.textContent || "");
+    if (ownText && ownText.length <= 80 && /\bnotifications?\b/.test(ownText)) {
+      return true;
+    }
+
+    return false;
+  }
+
+  function isNotificationSurface(surface) {
+    if (!(surface instanceof Element) || !isVisible(surface)) {
+      return false;
+    }
+
+    if (elementHasNotificationLabel(surface)) {
+      return true;
+    }
+
+    const headingLikeElements = surface.querySelectorAll(
+      '[role="heading"], h1, h2, h3, h4, [aria-label], [data-pagelet]'
+    );
+
+    for (const candidate of headingLikeElements) {
+      if (!(candidate instanceof Element) || !isVisible(candidate)) {
+        continue;
+      }
+
+      const candidateLabel = normalizeText(candidate.getAttribute("aria-label"));
+      const candidateText = normalizeText(candidate.textContent || "");
+      if (/\bnotifications?\b/.test(candidateLabel) || /\bnotifications?\b/.test(candidateText)) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function getVisibleNotificationSurface(root = document) {
+    const scopedElement = root instanceof Element ? root : null;
+    const surfaceSelectors = [
+      '[role="dialog"]',
+      '[role="menu"]',
+      '[role="listbox"]',
+      '[aria-modal="true"]',
+      '[data-pagelet]',
+      '[role="complementary"]'
+    ].join(', ');
+
+    if (scopedElement) {
+      const scopedCandidate = scopedElement.closest(surfaceSelectors);
+      if (isNotificationSurface(scopedCandidate)) {
+        return scopedCandidate;
+      }
+    }
+
+    const candidates = [...document.querySelectorAll(surfaceSelectors)].reverse();
+    return candidates.find((candidate) => isNotificationSurface(candidate)) || null;
+  }
+
+  function isNotificationInteraction(target) {
+    if (!(target instanceof Element)) {
+      return false;
+    }
+
+    if (elementHasNotificationLabel(target) || elementHasNotificationLabel(target.closest('[role="button"], [role="link"], button, a[href], [tabindex]'))) {
+      return true;
+    }
+
+    const notificationSurface = getVisibleNotificationSurface(target);
+    return !!(notificationSurface && notificationSurface.contains(target));
+  }
+
   function hasPostDialogSignals(surface) {
     if (!(surface instanceof Element) || !surface.matches('[role="dialog"]')) {
       return false;
@@ -2482,6 +2563,8 @@
     isDirectPostDomReady,
     isMediaViewerPage,
     isReelExperiencePage,
+    getVisibleNotificationSurface,
+    isNotificationInteraction,
     getActiveReelCommentSurface,
     getBlockingMediaViewerOverlay,
     getVisiblePostDialog,

@@ -51,6 +51,7 @@
   let antiRefreshInjected = false;
   let statsFlushTimer = null;
   let extensionContextValid = true;
+  let automationSuppressedUntil = 0;
   const pendingStatIncrements = {};
   /* Facebook may render a valid See more button before its live click handler is
      attached. Track bounded retries instead of permanently suppressing the first
@@ -102,6 +103,14 @@
     return contentComments.getBlockingMediaViewerOverlay?.() || null;
   }
 
+  function getVisibleNotificationSurface(root = document) {
+    return contentComments.getVisibleNotificationSurface?.(root) || null;
+  }
+
+  function isNotificationInteraction(target) {
+    return contentComments.isNotificationInteraction?.(target) || false;
+  }
+
   function hasPostDialogSignals(surface) {
     return contentComments.hasPostDialogSignals(surface);
   }
@@ -139,6 +148,21 @@
 
   function scheduleCommentAutomationPasses(root = document) {
     return contentComments.scheduleCommentAutomationPasses(root, runtimeDeps);
+  }
+
+  function suppressAutomationFor(ms) {
+    const nextUntil = Date.now() + Math.max(0, Number(ms) || 0);
+    if (nextUntil > automationSuppressedUntil) {
+      automationSuppressedUntil = nextUntil;
+    }
+  }
+
+  function shouldSuppressAutomation(root = document) {
+    if (Date.now() < automationSuppressedUntil) {
+      return true;
+    }
+
+    return !!getVisibleNotificationSurface(root);
   }
 
   function runFeedCleanup(root = document) {
@@ -582,6 +606,10 @@
   }
 
   function runAll(root = document) {
+    if (shouldSuppressAutomation(root)) {
+      return;
+    }
+
     ensureChronologicalGroupUrl();
 
     if (settings.enableAntiRefresh) {
@@ -769,6 +797,16 @@
   document.addEventListener("DOMContentLoaded", () => {
     scheduleDocumentPasses();
   });
+  document.addEventListener("click", (event) => {
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target) {
+      return;
+    }
+
+    if (isNotificationInteraction(target)) {
+      suppressAutomationFor(6000);
+    }
+  }, true);
   window.addEventListener("load", () => {
     scheduleDocumentPasses();
   });
@@ -829,6 +867,9 @@
     const currentUrl = window.location.href;
     if (currentUrl !== lastObservedUrl) {
       lastObservedUrl = currentUrl;
+      if (Date.now() < automationSuppressedUntil) {
+        suppressAutomationFor(2500);
+      }
       debouncedRunAll();
       return;
     }
