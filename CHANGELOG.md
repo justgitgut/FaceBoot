@@ -1,5 +1,43 @@
 # Changelog
 
+## 2026-03-23 - v1.1.0
+
+### Release Summary
+
+- Rebranded from FaceBoot to Faceberg with new artwork, updated all source identifiers, and shipped a redesigned popup stats UI.
+
+### Changed
+
+- Renamed extension from FaceBoot to Faceberg in manifest, all JS source files, store listings, and documentation.
+- Replaced all `__facebootContentScriptInstalled`, `__facebootNoRefreshInstalled`, and `FaceBootStats` identifiers with their `Faceberg` equivalents.
+- Enabled anti-refresh protection by default (`enableAntiRefresh: true`).
+
+### Improved — Anti-Refresh (`injected.js`)
+
+- Added `normalizePathname()` to strip trailing slashes before same-path comparison, preventing spurious reload blocks on canonical URL variants.
+- Added `toNavigationTarget()` for consistent URL coercion from string or object inputs.
+- Extended `VOLATILE_REFRESH_PARAM_PATTERN` to also strip `_rdc`, `_rdr`, `__tn__`, `__xts__`, and `utm_*` parameters from canonical comparisons.
+- Added `pagehide` and `freeze` to `SUSPICIOUS_EVENT_TYPES` alongside the existing visibility/focus events.
+- Increased `RESUME_SUPPRESSION_WINDOW_MS` from 5 000 ms to 10 000 ms.
+- Added `lastUserInteractionAt` tracking to inform smarter suppression decisions.
+
+### Improved — Popup
+
+- Redesigned stats panel with an ROI hero section showing estimated time saved and three breakdown pillars (Cleanup, Expansion, Refresh).
+- Replaced individual badge/total elements with a unified detail list for a cleaner at-a-glance view.
+
+### Icons
+
+- Replaced placeholder book and source assets with new Faceberg ship-and-iceberg artwork across all sizes (16 × 16, 32 × 32, 48 × 48, 128 × 128).
+- Added `faceberg.ico`, `faceberg_master_1024.png`, and `logo.png` source assets.
+- Updated `make-icons.ps1` for the new logo source.
+
+### Added
+
+- `CHROME-STORE-APPEAL.md` — draft appeal letter for Chrome Web Store submission review.
+- `STORE-LISTING-FALLBACK.md` — condensed fallback store listing copy.
+- `test.js` — in-page debugging helper.
+
 ## 2026-03-22 - v1.0.1
 
 ### Release Summary
