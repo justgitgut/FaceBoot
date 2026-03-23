@@ -512,6 +512,13 @@
       return false;
     }
 
+    /* Only use signals that are exclusive to real post dialogs and cannot appear
+       inside a Facebook notification or messenger panel.
+       Removed: href*="/permalink/", href*="/posts/" — notification items always
+       link to these URLs, causing the notification panel to be misidentified as a
+       post dialog and triggering comment automation that opens a random post.
+       Removed: [role="list"] [role="article"] and [aria-live] [role="article"] —
+       the notification panel uses exactly this structure for its notification list. */
     return (
       hasPostActionControl(surface) ||
       !!surface.querySelector(
@@ -520,11 +527,7 @@
         '[data-ad-rendering-role="profile_name"], ' +
         '[data-ad-rendering-role="comment_button"], ' +
         'a[aria-label="hide post"], ' +
-        'a[role="link"][href*="/permalink/"], ' +
-        'a[role="link"][href*="/posts/"], ' +
-        'a[role="link"][href*="/story.php"], ' +
-        '[role="list"] [role="article"], ' +
-        '[aria-live] [role="article"]'
+        'a[role="link"][href*="/story.php"]'
       )
     );
   }
