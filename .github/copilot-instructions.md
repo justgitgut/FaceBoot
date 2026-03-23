@@ -25,6 +25,9 @@
 - Before any feature implementation, bug fix, refactor, or other code/behavior-changing edit, first describe the planned operations and wait for user approval.
 - If the planned implementation changes materially while working, stop and ask for approval again before editing further.
 - This approval requirement is for code or behavior changes, not for read-only exploration.
+- Do not commit or push untested changes automatically.
+- Only commit or push when the user explicitly asks for it.
+- If a change cannot be tested, leave it uncommitted by default and clearly tell the user that it remains untested.
 - Before changing notification or comment automation behavior, review [docs/comment-automation-notes.md](../docs/comment-automation-notes.md) and [docs/regression-checklist.md](../docs/regression-checklist.md).
 - After changing those paths, explicitly validate the notification navigation checks and related regression checklist items.
 - If you discover a new failure mode, update the notes and checklist in the same change.
