@@ -73,6 +73,19 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 3. Navigate between feed, direct-post page, and back.
 4. Confirm comment automation remains scoped to direct-post pages or already-open dialogs.
 
+## Notification Navigation Checks
+
+1. Open the notifications surface from the main Facebook UI.
+2. Click a notification that targets a normal feed post.
+3. Confirm the intended post opens and no unrelated/random post opens instead.
+4. Close the opened post and repeat the same notification click at least twice.
+5. Confirm the first click behaves the same as later clicks; there is no stale first-attempt misfire.
+6. Click a notification that targets a group post.
+7. Confirm Faceberg does not land on the parent group feed when the notification should open the specific post.
+8. Confirm two post dialogs never stack on top of each other during notification opens.
+9. While the notifications surface is visible, confirm Faceberg does not trigger feed/comment automation elsewhere on the page.
+10. After the notification target finishes opening, confirm normal automation resumes on the actual destination post only.
+
 ## URL Normalization Checks
 
 1. Enable **Go directly to feeds on activation** and apply settings.
@@ -108,3 +121,4 @@ Changes are acceptable when all of the following remain true:
 5. No random posts or dialogs open.
 6. No stray clicks or composer interruptions occur.
 7. Repeated photo/comment opens do not resurrect previously viewed dialogs.
+8. Notification-driven navigation never opens the wrong post, a stacked post dialog, or a parent group feed.

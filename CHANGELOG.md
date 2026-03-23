@@ -26,6 +26,17 @@
 - Redesigned stats panel with an ROI hero section showing estimated time saved and three breakdown pillars (Cleanup, Expansion, Refresh).
 - Replaced individual badge/total elements with a unified detail list for a cleaner at-a-glance view.
 
+### Fixed — Notification Navigation
+
+- Documented and hardened the notification-navigation failure mode where Facebook can rewrite the URL before replacing the old feed DOM.
+- Restricted direct-post automation so it waits for DOM evidence matching the current target post instead of acting on stale feed surfaces.
+- Added notification-aware suppression so feed cleanup, post expansion, comment automation, delayed retries, and mutation watchers stand down while the notifications surface is active and while notification-driven navigation is settling.
+- Removed navigation-prone generic primary comment opener automation from direct post handling to avoid wrong-post opens, stacked dialogs, and parent-group-feed misroutes.
+
+### Documentation
+
+- Added explicit notification-navigation guardrails and regression coverage so future automation changes do not reintroduce random post opens from notifications.
+
 ### Icons
 
 - Replaced placeholder book and source assets with new Faceberg ship-and-iceberg artwork across all sizes (16 × 16, 32 × 32, 48 × 48, 128 × 128).
