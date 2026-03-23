@@ -2353,13 +2353,12 @@
       return true;
     }
 
-    const directPostPrimaryOpener = (
-      onDirectPostPage &&
-      !hasRenderedCommentThread(activeDialog) &&
-      !hasVisibleCommentComposer(activeDialog)
-    )
-      ? getDirectPostPrimaryCommentControl(activeDialog, controls)
-      : null;
+    /* Do not auto-click the generic primary comment opener on direct post pages.
+       Even when the resolved surface matches the current target URL, Facebook can
+       still route that opener through navigation-style handlers that reopen a post,
+       stack dialogs, or land on the parent group feed instead of expanding inline
+       comments. Only act on comment UI that is already rendered inline. */
+    const directPostPrimaryOpener = null;
 
     const prioritizedControls = [
       ...controls.filter((control) => getCommentExpanderKind(control) === "replyLoadMore"),
