@@ -1,4 +1,4 @@
-Set-StrictMode -Version Latest
+﻿Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
 $root = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -16,7 +16,7 @@ if ([string]::IsNullOrWhiteSpace($version)) {
 }
 
 $distDir = Join-Path $root "dist"
-$packageName = "faceboot-v$version-chrome-store.zip"
+$packageName = "faceberg-v$version-chrome-store.zip"
 $packagePath = Join-Path $distDir $packageName
 $stageDir = Join-Path $distDir "package"
 
@@ -33,12 +33,10 @@ $includePaths = @(
   "popup.html",
   "popup.css",
   "popup.js",
-  "icons\book.gif",
   "icons\icon16.png",
   "icons\icon32.png",
   "icons\icon48.png",
-  "icons\icon128.png",
-  "icons\source.png"
+  "icons\icon128.png"
 )
 
 New-Item -ItemType Directory -Force -Path $distDir | Out-Null
