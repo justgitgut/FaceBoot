@@ -1,6 +1,6 @@
 # Privacy Policy for FaceBoot
 
-Last updated: March 12, 2026
+Last updated: March 22, 2026
 
 FaceBoot does not sell personal data, does not send browsing data to any server, and does not use analytics, ads, or remote code.
 
@@ -57,7 +57,7 @@ Data remains in your browser storage until you:
 - clear extension storage through Chrome
 - uninstall the extension
 
-Session activity counters reset when the relevant page context is reloaded. Aggregate counters persist in local storage until cleared or the extension is removed.
+Session activity counters reset when the browser session or extension worker session is restarted. Aggregate counters persist in local storage until cleared or the extension is removed.
 
 ## Your choices
 
@@ -69,4 +69,6 @@ You can:
 
 ## Contact
 
-If you publish FaceBoot in the Chrome Web Store, replace this section with your public support contact or repository issue URL.
+Support and privacy questions can be directed to the public issue tracker:
+
+- `https://github.com/justgitgut/FaceBoot/issues`

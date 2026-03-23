@@ -33,49 +33,71 @@
     <main class="fb-body">
       <section class="fb-panel is-active" id="settingsPanel" data-tab-panel aria-label="Settings tab">
         <section class="fb-card">
-          <h2 class="fb-section-title">Settings</h2>
-          <div class="fb-setting-group">
-            <section class="fb-setting-block" aria-label="Refresh protection settings">
-              <h3 class="fb-group-title">Stay On Page</h3>
-              <p class="fb-group-copy">Facebook reloads the page when you switch back to it after a while. Turn this on to keep your scroll position and stop that from happening.</p>
-              <label class="fb-toggle fb-toggle--standalone">
-                <input id="enableAntiRefresh" type="checkbox" />
-                <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
-                <span class="fb-toggle-label">Stop Facebook reloading when you return</span>
-              </label>
-            </section>
+          <div class="fb-settings-grid">
 
-            <section class="fb-setting-block" aria-label="Feed cleanup settings">
-              <h3 class="fb-group-title">Clean Up Feed</h3>
-              <p class="fb-group-copy">Removes Reels, Stories, Sponsored blocks, People You May Know, and optional Follow or Join posts.</p>
-              <div class="fb-setting-cluster" id="feedCleanupCluster">
-                <label class="fb-toggle fb-toggle--group-head">
+            <div class="fb-settings-col">
+              <div class="fb-setting-block">
+                <h3 class="fb-group-title">Stay On Page</h3>
+                <p class="fb-group-copy">Keeps your scroll position when you return to Facebook instead of reloading the page.</p>
+                <label class="fb-toggle">
+                  <input id="enableAntiRefresh" type="checkbox" />
+                  <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
+                  <span class="fb-toggle-label">Stop page reload on return</span>
+                </label>
+              </div>
+
+              <div class="fb-setting-block">
+                <h3 class="fb-group-title">Expand Content</h3>
+                <p class="fb-group-copy">Automatically opens truncated posts and deeper comment threads.</p>
+                <label class="fb-toggle">
+                  <input id="enablePostExpansion" type="checkbox" />
+                  <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
+                  <span class="fb-toggle-label">Expand long posts</span>
+                </label>
+                <label class="fb-toggle">
+                  <input id="enableCommentExpansion" type="checkbox" />
+                  <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
+                  <span class="fb-toggle-label">Expand comment threads</span>
+                </label>
+              </div>
+
+              <div class="fb-setting-block">
+                <h3 class="fb-group-title">Navigation</h3>
+                <p class="fb-group-copy">Where Facebook opens after applying changes.</p>
+                <label class="fb-toggle">
+                  <input id="enableGoDirectlyToFeeds" type="checkbox" />
+                  <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
+                  <span class="fb-toggle-label">Open on All Feed</span>
+                </label>
+              </div>
+            </div>
+
+            <div class="fb-settings-col fb-settings-col--right">
+              <div class="fb-setting-block">
+                <h3 class="fb-group-title">Clean Up Feed</h3>
+                <p class="fb-group-copy">Hides Reels, Stories, Sponsored posts, People You May Know and other feed clutter.</p>
+                <label class="fb-toggle">
                   <input id="enableFeedFilter" type="checkbox" />
                   <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
-                  <span class="fb-toggle-label">Clean up feed</span>
+                  <span class="fb-toggle-label">Enable feed cleanup</span>
                 </label>
-
-                <p class="fb-dependent-note" id="feedCleanupNote">Turn on Clean up feed to edit the filter list below.</p>
-
-                <div class="fb-toggle-children" id="feedCleanupChildren">
+                <p class="fb-dependent-note" id="feedCleanupNote">Turn on feed cleanup to configure filters.</p>
+                <div id="feedCleanupChildren">
                   <label class="fb-toggle fb-toggle--indent" data-parent-toggle="enableFeedFilter">
                     <input id="enableBlockReels" type="checkbox" />
                     <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
                     <span class="fb-toggle-label">Hide <strong>Reels</strong></span>
                   </label>
-
                   <label class="fb-toggle fb-toggle--indent" data-parent-toggle="enableFeedFilter">
                     <input id="enableBlockPeopleYouMayKnow" type="checkbox" />
                     <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
                     <span class="fb-toggle-label">Hide <strong>People You May Know</strong></span>
                   </label>
-
                   <label class="fb-toggle fb-toggle--indent" data-parent-toggle="enableFeedFilter">
                     <input id="enableBlockFollowPosts" type="checkbox" />
                     <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
                     <span class="fb-toggle-label">Hide <strong>Follow</strong> posts</span>
                   </label>
-
                   <label class="fb-toggle fb-toggle--indent" data-parent-toggle="enableFeedFilter">
                     <input id="enableBlockJoinPosts" type="checkbox" />
                     <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
@@ -83,90 +105,97 @@
                   </label>
                 </div>
               </div>
-            </section>
+            </div>
 
-            <section class="fb-setting-block" aria-label="Content expansion settings">
-              <h3 class="fb-group-title">Expand Content</h3>
-              <p class="fb-group-copy">Automatically opens long posts and deeper comment threads when available.</p>
-              <label class="fb-toggle fb-toggle--standalone">
-                <input id="enablePostExpansion" type="checkbox" />
-                <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
-                <span class="fb-toggle-label">Expand long posts automatically</span>
-              </label>
-
-              <label class="fb-toggle fb-toggle--standalone">
-                <input id="enableCommentExpansion" type="checkbox" />
-                <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
-                <span class="fb-toggle-label">Expand comment threads automatically</span>
-              </label>
-            </section>
-
-            <section class="fb-setting-block" aria-label="Navigation settings">
-              <h3 class="fb-group-title">Navigation</h3>
-              <p class="fb-group-copy">Choose where Facebook should land after you apply settings.</p>
-              <label class="fb-toggle fb-toggle--standalone">
-                <input id="enableGoDirectlyToFeeds" type="checkbox" />
-                <span class="fb-toggle-track"><span class="fb-toggle-thumb"></span></span>
-                <span class="fb-toggle-label">Open Facebook on All Feed</span>
-              </label>
-            </section>
           </div>
         </section>
-
         <p class="fb-apply-note">Applying changes refreshes open Facebook tabs.</p>
       </section>
 
       <section class="fb-panel" id="activityPanel" data-tab-panel hidden aria-label="Activity tab">
         <section class="fb-card fb-card--activity" aria-label="FaceBoot activity">
-          <div class="fb-section-header">
-            <h2 class="fb-section-title">Activity</h2>
-            <button id="resetStatsButton" type="button" class="fb-btn fb-btn--inline">Reset</button>
+
+          <!-- Time-saved hero -->
+          <div class="fb-hero">
+            <div class="fb-hero-caption">
+              <img class="fb-hero-icon" src="icons/book.gif" alt="" aria-hidden="true" />
+              <span>FaceBoot saved you</span>
+            </div>
+            <strong class="fb-hero-value" id="timeSavedTotalValue">0s</strong>
+            <span class="fb-hero-sub"><span id="timeSavedSessionValue">0s</span> this session</span>
           </div>
 
-          <div class="fb-period-bar">
-            <button type="button" class="fb-period-btn is-active" data-period="session">This Session</button>
-            <button type="button" class="fb-period-btn" data-period="total">All Time</button>
-          </div>
-
-          <div class="fb-time-hero">
-            <img class="fb-time-hero-icon" src="icons/book.gif" alt="" aria-hidden="true" />
-            <div class="fb-time-hero-text">
-              <strong class="fb-time-hero-value" id="timeSavedValue">0s</strong>
-              <span class="fb-time-hero-label">time saved</span>
+          <!-- Impact counters -->
+          <div class="fb-impacts" id="impactSection">
+            <div class="fb-impact">
+              <span class="fb-impact-icon" aria-hidden="true">🧹</span>
+              <span class="fb-impact-body"><strong class="fb-impact-num" id="cleanupTotal">0</strong> distractions removed from your feed</span>
+              <span class="fb-impact-badge" id="cleanupBadge"></span>
+            </div>
+            <div class="fb-impact">
+              <span class="fb-impact-icon" aria-hidden="true">📖</span>
+              <span class="fb-impact-body"><strong class="fb-impact-num" id="expansionTotal">0</strong> posts &amp; comments auto&#8209;expanded</span>
+              <span class="fb-impact-badge" id="expansionBadge"></span>
+            </div>
+            <div class="fb-impact">
+              <span class="fb-impact-icon" aria-hidden="true">🛡️</span>
+              <span class="fb-impact-body"><strong class="fb-impact-num" id="refreshTotal">0</strong> unwanted page reloads prevented</span>
+              <span class="fb-impact-badge" id="refreshBadge"></span>
             </div>
           </div>
 
-          <div class="fb-stat-group">
-            <div class="fb-stat-group-header">
-              <span class="fb-stat-group-title">Feed Cleanup</span>
-              <strong class="fb-stat-group-total" id="cleanupTotal">0</strong>
-            </div>
-            <div class="fb-stat-rows" id="cleanupRows"></div>
+          <!-- Empty state (shown when all stats are 0) -->
+          <p class="fb-empty" id="emptyState" hidden>Browse Facebook and FaceBoot will start tracking what it does for you here.</p>
+
+          <!-- Collapsible per-item breakdown -->
+          <details class="fb-breakdown" id="breakdownDetails">
+            <summary class="fb-breakdown-toggle">Show breakdown</summary>
+            <div class="fb-breakdown-body" id="breakdownBody"></div>
+          </details>
+
+          <!-- Support CTA -->
+          <div class="fb-support" id="supportCta">
+            <p class="fb-support-line" id="supportLine">That's time you'll never waste again. You're welcome.</p>
+            <button id="donateButton" type="button" class="fb-bmc-btn"><span class="fb-bmc-icon" aria-hidden="true">☕</span><span>Buy me a coffee</span></button>
+            <p class="fb-support-note">Mass-produced Reels won't scroll themselves.<br>Oh wait, that's the whole point.</p>
           </div>
 
-          <div class="fb-stat-group">
-            <div class="fb-stat-group-header">
-              <span class="fb-stat-group-title">Automated Actions</span>
-            </div>
-            <div class="fb-stat-rows" id="activityRows"></div>
-          </div>
-
-          <div class="fb-reset-footer" id="resetFooter">
+          <!-- Footer -->
+          <div class="fb-activity-footer" id="resetFooter">
             <span id="resetInfo">Tracking since now</span>
+            <button id="resetStatsButton" type="button" class="fb-link-btn">Reset</button>
           </div>
+
         </section>
       </section>
 
       <section class="fb-panel" id="aboutPanel" data-tab-panel hidden aria-label="About tab">
         <section class="fb-card fb-card--about">
-          <h2 class="fb-section-title">About</h2>
-          <div class="fb-about">
-            <img class="fb-about-icon" id="aboutIcon" src="icons/icon128.png" alt="FaceBoot icon" width="112" height="112" />
-            <h3 class="fb-about-title">FaceBoot</h3>
-            <p class="fb-about-copy">FaceBoot keeps Facebook focused on the feed by removing noisy modules, expanding useful content automatically, and offering optional anti-refresh protection.</p>
-            <p class="fb-about-copy">Use Settings to control what gets cleaned up. Use Activity to inspect what the extension has removed or expanded during this browser session.</p>
-            <button id="donateButton" type="button" class="fb-btn fb-btn--donate">Support FaceBoot! :)</button>
-            <p class="fb-about-support">If FaceBoot saves you time, you can support development on Buy Me a Coffee.</p>
+          <div class="fb-about-header">
+            <img class="fb-about-icon" id="aboutIcon" src="icons/icon128.png" alt="FaceBoot icon" width="72" height="72" />
+            <div class="fb-about-header-text">
+              <h2 class="fb-about-title">FaceBoot</h2>
+              <span class="fb-about-ver" id="aboutVersion"></span>
+            </div>
+          </div>
+
+          <div class="fb-about-body">
+            <p class="fb-about-copy">FaceBoot is a lightweight browser extension that makes Facebook less noisy and more usable. It cleans up your feed, expands truncated content for you, and prevents the page from reloading behind your back.</p>
+
+            <div class="fb-about-features">
+              <h3 class="fb-about-subtitle">What it does</h3>
+              <ul class="fb-about-list">
+                <li><strong>Feed cleanup</strong> &mdash; hides Reels, Stories, Sponsored posts, "People you may know", and other clutter so you only see what matters.</li>
+                <li><strong>Auto-expand</strong> &mdash; opens truncated posts, loads deeper comment threads, and switches to "All comments" automatically.</li>
+                <li><strong>Anti-refresh</strong> &mdash; stops Facebook from silently reloading the page when you switch tabs, preserving your scroll position.</li>
+              </ul>
+            </div>
+
+            <div class="fb-about-note">
+              <strong>🌐 Language:</strong> FaceBoot currently supports English-language Facebook only. If you'd like support for another language or additional functionality, feel free to request it through the extension's store page.
+            </div>
+
+            <p class="fb-about-copy fb-about-copy--muted">Use <strong>Settings</strong> to choose what gets cleaned up. Check <strong>Activity</strong> to see everything FaceBoot has done for you.</p>
           </div>
         </section>
       </section>

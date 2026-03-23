@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "FaceBoot",
-  "version": "0.2.0",
-  "description": "Hide Reels, sponsored posts, and feed clutter. Auto-expand long posts and comment threads. Optional anti-refresh protection for Facebook tabs.",
+  "version": "1.0.1",
+  "description": "Hide Facebook feed clutter, expand posts and comment threads, and optionally reduce disruptive tab refreshes.",
   "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": [
     "*://www.facebook.com/*",

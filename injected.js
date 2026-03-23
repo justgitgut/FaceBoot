@@ -9,6 +9,7 @@
 
   const BLOCK_MSG = "[FaceBoot] Blocked forced refresh call.";
   const SUSPICIOUS_EVENT_TYPES = /^(visibilitychange|focus|blur|pageshow|resume|popstate|hashchange)$/;
+  const VOLATILE_REFRESH_PARAM_PATTERN = /^(?:__.*|fbclid|ref|refsrc|notif_id|notif_t|notif_type|acontext|paipv|locale|ti|eav|av|mibextid)$/i;
   const RESUME_SUPPRESSION_WINDOW_MS = 5000;
   let wasPageHidden = false;
   let reallyHidden = false;
@@ -26,18 +27,66 @@
     }
   }
 
-  function isSamePageNavigationTarget(input) {
+  function getCanonicalSearch(url) {
+    const entries = [];
+
+    for (const [key, value] of url.searchParams.entries()) {
+      if (VOLATILE_REFRESH_PARAM_PATTERN.test(key)) {
+        continue;
+      }
+
+      entries.push([key, value]);
+    }
+
+    entries.sort((left, right) => {
+      const leftKey = `${left[0]}\u0000${left[1]}`;
+      const rightKey = `${right[0]}\u0000${right[1]}`;
+      return leftKey.localeCompare(rightKey);
+    });
+
+    return entries.map(([key, value]) => `${key}=${value}`).join("&");
+  }
+
+  function getNavigationRelation(input) {
     const target = safeUrl(input);
     if (!target) {
-      return false;
+      return null;
     }
 
     const current = new URL(window.location.href);
-    return (
-      target.origin === current.origin &&
-      target.pathname === current.pathname &&
-      target.search === current.search
-    );
+    const sameOrigin = target.origin === current.origin;
+    const samePath = sameOrigin && target.pathname === current.pathname;
+    const sameSearch = samePath && target.search === current.search;
+    const sameHash = samePath && target.hash === current.hash;
+    const sameCanonicalSearch = samePath && getCanonicalSearch(target) === getCanonicalSearch(current);
+
+    return {
+      target,
+      current,
+      sameOrigin,
+      samePath,
+      sameSearch,
+      sameHash,
+      sameCanonicalSearch,
+      isHashOnlyChange: samePath && sameSearch && !sameHash
+    };
+  }
+
+  function shouldBlockNavigationTarget(input) {
+    const relation = getNavigationRelation(input);
+    if (!relation || !relation.sameOrigin || !relation.samePath) {
+      return false;
+    }
+
+    if (relation.isHashOnlyChange) {
+      return false;
+    }
+
+    if (relation.sameSearch || relation.sameCanonicalSearch) {
+      return true;
+    }
+
+    return resumeSuppressionUntil > Date.now();
   }
 
   function isSuspiciousTimerHandler(handler) {
@@ -162,7 +211,7 @@
         }
 
         holder[methodName] = function (...args) {
-          if (args.length > 0 && isSamePageNavigationTarget(args[0])) {
+          if (args.length > 0 && shouldBlockNavigationTarget(args[0])) {
             console.debug(BLOCK_MSG, methodName, args[0]);
             reportStat("preventedRefreshes", 1);
             return undefined;
@@ -349,6 +398,33 @@
     }
   }
 
+  function guardLocationPropertySetter(propertyName, createNextUrl) {
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(Location.prototype, propertyName);
+      if (!descriptor || typeof descriptor.set !== "function" || typeof descriptor.get !== "function") {
+        return;
+      }
+
+      Object.defineProperty(Location.prototype, propertyName, {
+        configurable: true,
+        enumerable: descriptor.enumerable ?? true,
+        get: descriptor.get,
+        set(value) {
+          const nextUrl = createNextUrl(value);
+          if (nextUrl && shouldBlockNavigationTarget(nextUrl.href)) {
+            console.debug(BLOCK_MSG, `location.${propertyName} setter`, nextUrl.href);
+            reportStat("preventedRefreshes", 1);
+            return;
+          }
+
+          descriptor.set.call(this, value);
+        }
+      });
+    } catch (_error) {
+      // Ignore if browser blocks overriding Location property setters.
+    }
+  }
+
   function guardLocationHrefSetter() {
     try {
       const hrefDescriptor = Object.getOwnPropertyDescriptor(Location.prototype, "href");
@@ -361,7 +437,7 @@
         enumerable: true,
         get: hrefDescriptor.get,
         set(value) {
-          if (isSamePageNavigationTarget(value)) {
+          if (shouldBlockNavigationTarget(value)) {
             console.debug(BLOCK_MSG, "location.href setter", value);
             reportStat("preventedRefreshes", 1);
             return;
@@ -423,9 +499,77 @@
     }
   }
 
+  function guardWindowOpen() {
+    try {
+      const originalOpen = window.open;
+      if (typeof originalOpen !== "function") {
+        return;
+      }
+
+      window.open = function (url, target, ...rest) {
+        const effectiveTarget = target === undefined ? "_blank" : String(target);
+        const isSelfTarget =
+          effectiveTarget === "_self" ||
+          effectiveTarget === "" ||
+          effectiveTarget === "_top" ||
+          effectiveTarget === "_parent";
+
+        if (isSelfTarget && url && shouldBlockNavigationTarget(url)) {
+          console.debug(BLOCK_MSG, "window.open", url, effectiveTarget);
+          reportStat("preventedRefreshes", 1);
+          return null;
+        }
+
+        return originalOpen.apply(this, [url, target, ...rest]);
+      };
+
+      window.open.__facebootOriginal = originalOpen;
+    } catch (_error) {
+      // Ignore if browser blocks overriding window.open.
+    }
+  }
+
+  function guardNavigationAPI() {
+    if (!window.navigation || typeof window.navigation.navigate !== "function") {
+      return;
+    }
+
+    try {
+      const originalNavigate = window.navigation.navigate.bind(window.navigation);
+
+      window.navigation.navigate = function (url, options) {
+        if (url && shouldBlockNavigationTarget(url)) {
+          console.debug(BLOCK_MSG, "navigation.navigate", url);
+          reportStat("preventedRefreshes", 1);
+          const aborted = Promise.reject(new DOMException("Blocked by FaceBoot", "AbortError"));
+          aborted.catch(() => {});
+          return { committed: aborted, finished: aborted };
+        }
+
+        return originalNavigate(url, options);
+      };
+
+      window.navigation.navigate.__facebootOriginal = originalNavigate;
+    } catch (_error) {
+      // Ignore if browser blocks overriding navigation.navigate.
+    }
+  }
+
   guardLocationReload();
   guardLocationNavigationMethods();
   guardLocationHrefSetter();
+  guardWindowOpen();
+  guardNavigationAPI();
+  guardLocationPropertySetter("search", (value) => {
+    const nextUrl = new URL(window.location.href);
+    nextUrl.search = String(value ?? "");
+    return nextUrl;
+  });
+  guardLocationPropertySetter("pathname", (value) => {
+    const nextUrl = new URL(window.location.href);
+    nextUrl.pathname = String(value ?? nextUrl.pathname);
+    return nextUrl;
+  });
   guardHistoryReloads();
   guardSuspiciousLifecycleListeners();
   guardSuspiciousEventHandlerProperties();

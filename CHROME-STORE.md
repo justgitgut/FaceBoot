@@ -15,9 +15,9 @@ This repository is prepared for packaging, but Chrome Web Store publication stil
 
 ## Manual items still required before submission
 
-1. Create a public privacy policy URL.
+1. Create or verify a public privacy policy URL.
 2. Prepare at least one screenshot of the extension in use.
-3. Choose a support URL or public issue tracker.
+3. Use a support URL or public issue tracker.
 4. Build the release zip for upload.
 5. Fill out the Chrome Web Store privacy questionnaire accurately.
 
@@ -26,6 +26,8 @@ This repository is prepared for packaging, but Chrome Web Store publication stil
 - Listing copy: [STORE-LISTING.md](STORE-LISTING.md)
 - Privacy policy: [PRIVACY.md](PRIVACY.md)
 - Privacy questionnaire answers: [PRIVACY-QUESTIONNAIRE.md](PRIVACY-QUESTIONNAIRE.md)
+- Suggested support URL: `https://github.com/justgitgut/FaceBoot/issues`
+- Suggested privacy-policy URL if GitHub Pages is enabled: `https://justgitgut.github.io/FaceBoot/privacy/`
 
 ## Permission justifications
 

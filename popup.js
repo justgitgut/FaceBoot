@@ -48,15 +48,24 @@
   const blockFollowPostsInput = document.getElementById("enableBlockFollowPosts");
   const blockJoinPostsInput = document.getElementById("enableBlockJoinPosts");
   const goDirectlyToFeedsInput = document.getElementById("enableGoDirectlyToFeeds");
-  const timeSavedValue = document.getElementById("timeSavedValue");
+  const timeSavedSessionValue = document.getElementById("timeSavedSessionValue");
+  const timeSavedTotalValue = document.getElementById("timeSavedTotalValue");
   const cleanupTotalEl = document.getElementById("cleanupTotal");
-  const cleanupRows = document.getElementById("cleanupRows");
-  const activityRows = document.getElementById("activityRows");
+  const expansionTotalEl = document.getElementById("expansionTotal");
+  const refreshTotalEl = document.getElementById("refreshTotal");
+  const cleanupBadge = document.getElementById("cleanupBadge");
+  const expansionBadge = document.getElementById("expansionBadge");
+  const refreshBadge = document.getElementById("refreshBadge");
+  const impactSection = document.getElementById("impactSection");
+  const emptyState = document.getElementById("emptyState");
+  const breakdownDetails = document.getElementById("breakdownDetails");
+  const breakdownBody = document.getElementById("breakdownBody");
+  const supportCta = document.getElementById("supportCta");
+  const supportLine = document.getElementById("supportLine");
   const resetInfo = document.getElementById("resetInfo");
   const feedCleanupNote = document.getElementById("feedCleanupNote");
   const tabButtons = Array.from(document.querySelectorAll("[data-tab-target]"));
   const tabPanels = Array.from(document.querySelectorAll("[data-tab-panel]"));
-  const periodButtons = Array.from(document.querySelectorAll("[data-period]"));
   const feedCleanupDependentRows = Array.from(document.querySelectorAll('[data-parent-toggle="enableFeedFilter"]'));
   const applyButton = document.getElementById("applyButton");
   const donateButton = document.getElementById("donateButton");
@@ -64,52 +73,92 @@
   const status = document.getElementById("status");
   const extensionVersion = document.getElementById("extensionVersion");
   const statRowElements = new Map();
-  let activePeriod = "session";
+  const IMPACT_GROUPS = [
+    {
+      totalEl: cleanupTotalEl,
+      badgeEl: cleanupBadge,
+      title: "Feed Cleanup",
+      items: [
+        { key: "removedReels", label: "Reels" },
+        { key: "removedFollowPosts", label: "Follow suggestions" },
+        { key: "removedJoinPosts", label: "Join suggestions" },
+        { key: "removedStories", label: "Stories" },
+        { key: "removedPeopleYouMayKnow", label: "People you may know" },
+        { key: "removedSponsored", label: "Sponsored posts" }
+      ]
+    },
+    {
+      totalEl: expansionTotalEl,
+      badgeEl: expansionBadge,
+      title: "Content Expansion",
+      items: [
+        { key: "expandedPosts", label: "Posts expanded" },
+        { key: "expandedComments", label: "Comment threads expanded" },
+        { key: "commentFilterChanges", label: "Comment filters changed" }
+      ]
+    },
+    {
+      totalEl: refreshTotalEl,
+      badgeEl: refreshBadge,
+      title: "Refresh Control",
+      items: [
+        { key: "preventedRefreshes", label: "Reloads prevented" }
+      ]
+    }
+  ];
   let latestStats = null;
   let clearStatusTimer = null;
   let isDirty = false;
-  const DONATE_URL = "https://www.buymeacoffee.com/pinkerton";
+  const DONATE_URL = "https://www.buymeacoffee.com/bzh22";
 
   function renderExtensionVersion() {
-    if (!extensionVersion) {
+    const manifestVersion = chrome.runtime?.getManifest?.()?.version;
+    const versionText = manifestVersion ? `v${manifestVersion}` : "";
+
+    if (extensionVersion) {
+      extensionVersion.textContent = versionText;
+    }
+
+    const aboutVersion = document.getElementById("aboutVersion");
+    if (aboutVersion) {
+      aboutVersion.textContent = versionText;
+    }
+  }
+
+  function buildBreakdown() {
+    if (!breakdownBody) {
       return;
     }
 
-    const manifestVersion = chrome.runtime?.getManifest?.()?.version;
-    extensionVersion.textContent = manifestVersion ? `v${manifestVersion}` : "";
-  }
-
-  function createStatRow(label) {
-    const row = document.createElement("div");
-    row.className = "fb-stat-row";
-
-    const labelEl = document.createElement("span");
-    labelEl.className = "fb-stat-row-label";
-    labelEl.textContent = label;
-
-    const valueEl = document.createElement("span");
-    valueEl.className = "fb-stat-row-value";
-    valueEl.textContent = "0";
-
-    row.append(labelEl, valueEl);
-    return { row, valueEl };
-  }
-
-  function buildStatsGrid() {
-    cleanupRows.replaceChildren();
-    activityRows.replaceChildren();
+    breakdownBody.replaceChildren();
     statRowElements.clear();
 
-    CLEANUP_STATS.forEach(({ key, label }) => {
-      const card = createStatRow(label);
-      cleanupRows.appendChild(card.row);
-      statRowElements.set(key, card);
-    });
+    IMPACT_GROUPS.forEach(({ title, items }) => {
+      const group = document.createElement("div");
+      group.className = "fb-bk-group";
 
-    ACTIVITY_STATS.forEach(({ key, label }) => {
-      const card = createStatRow(label);
-      activityRows.appendChild(card.row);
-      statRowElements.set(key, card);
+      const titleEl = document.createElement("div");
+      titleEl.className = "fb-bk-title";
+      titleEl.textContent = title;
+      group.appendChild(titleEl);
+
+      items.forEach(({ key, label }) => {
+        const row = document.createElement("div");
+        row.className = "fb-bk-row";
+
+        const labelEl = document.createElement("span");
+        labelEl.textContent = label;
+
+        const valEl = document.createElement("span");
+        valEl.className = "fb-bk-val";
+        valEl.textContent = "0";
+
+        row.append(labelEl, valEl);
+        group.appendChild(row);
+        statRowElements.set(key, { valEl });
+      });
+
+      breakdownBody.appendChild(group);
     });
   }
 
@@ -117,16 +166,7 @@
     return Number(value || 0).toLocaleString();
   }
 
-  function setActivePeriod(period) {
-    activePeriod = period;
-    periodButtons.forEach((btn) => {
-      btn.classList.toggle("is-active", btn.dataset.period === period);
-    });
-
-    if (latestStats) {
-      renderStats(latestStats);
-    }
-  }
+  function setActivePeriod(_period) { /* no-op: both periods shown simultaneously */ }
 
   function setActiveTab(targetId) {
     tabButtons.forEach((button) => {
@@ -144,36 +184,86 @@
 
   function renderStats(stats) {
     latestStats = stats;
-    const isSession = activePeriod === "session";
 
     /* Time saved hero */
-    if (timeSavedValue) {
-      timeSavedValue.textContent = formatDurationLabel(getSavedSeconds(stats, { session: isSession }));
+    if (timeSavedTotalValue) {
+      timeSavedTotalValue.textContent = formatDurationLabel(getSavedSeconds(stats, { session: false }));
+    }
+    if (timeSavedSessionValue) {
+      timeSavedSessionValue.textContent = formatDurationLabel(getSavedSeconds(stats, { session: true }));
     }
 
-    /* Cleanup total */
-    const cleanupSum = CLEANUP_STATS.reduce((sum, { key }) => {
-      const statKey = isSession ? getSessionStatKey(key) : key;
-      return sum + Number(stats[statKey] || 0);
-    }, 0);
+    /* Impact counters + session badges */
+    let grandTotal = 0;
 
-    if (cleanupTotalEl) {
-      cleanupTotalEl.textContent = formatStat(cleanupSum);
-    }
+    IMPACT_GROUPS.forEach(({ totalEl, badgeEl, items }) => {
+      let groupTotal = 0;
+      let groupSession = 0;
 
-    /* Individual rows */
+      items.forEach(({ key }) => {
+        groupTotal += Number(stats[key] || 0);
+        groupSession += Number(stats[getSessionStatKey(key)] || 0);
+      });
+
+      grandTotal += groupTotal;
+
+      if (totalEl) {
+        totalEl.textContent = formatStat(groupTotal);
+      }
+      if (badgeEl) {
+        badgeEl.textContent = groupSession > 0 ? `+${formatStat(groupSession)} this session` : "";
+      }
+    });
+
+    /* Detail breakdown values */
     ALL_STATS.forEach(({ key }) => {
-      const card = statRowElements.get(key);
-      if (!card) {
+      const entry = statRowElements.get(key);
+      if (!entry) {
         return;
       }
 
-      const statKey = isSession ? getSessionStatKey(key) : key;
-      card.valueEl.textContent = formatStat(stats[statKey]);
+      const val = Number(stats[key] || 0);
+      entry.valEl.textContent = formatStat(val);
+      entry.valEl.classList.toggle("fb-bk-val--zero", val === 0);
     });
+
+    /* Empty state vs content */
+    const isEmpty = grandTotal === 0;
+    if (emptyState) {
+      emptyState.hidden = !isEmpty;
+    }
+    if (impactSection) {
+      impactSection.hidden = isEmpty;
+    }
+    if (breakdownDetails) {
+      breakdownDetails.hidden = isEmpty;
+    }
+    if (supportCta) {
+      supportCta.hidden = isEmpty;
+    }
+    if (supportLine && !isEmpty) {
+      supportLine.textContent = pickSupportLine(grandTotal, getSavedSeconds(stats, { session: false }));
+    }
 
     /* Reset footer */
     renderResetInfo(stats[STATS_RESET_AT_KEY]);
+  }
+
+  function pickSupportLine(totalActions, savedSeconds) {
+    const mins = Math.round(savedSeconds / 60);
+    if (mins >= 60) {
+      return `${formatDurationLabel(savedSeconds)} reclaimed. Your future self says thanks.`;
+    }
+    if (totalActions >= 500) {
+      return `${formatStat(totalActions)} problems solved. Zero complaints filed.`;
+    }
+    if (totalActions >= 100) {
+      return `That's ${formatStat(totalActions)} things you didn't have to deal with.`;
+    }
+    if (totalActions >= 10) {
+      return "Already making your feed less annoying. Imagine a whole week.";
+    }
+    return "That's time you'll never waste again. You're welcome.";
   }
 
   function formatDurationLabel(totalSeconds) {
@@ -420,12 +510,6 @@
     });
   });
 
-  periodButtons.forEach((btn) => {
-    btn.addEventListener("click", () => {
-      setActivePeriod(btn.dataset.period);
-    });
-  });
-
   applyButton.addEventListener("click", () => {
     applySettings().catch(() => showStatus("Apply failed.", "error"));
   });
@@ -474,7 +558,7 @@
     }
   });
 
-  buildStatsGrid();
+  buildBreakdown();
   setActiveTab("settingsPanel");
   renderExtensionVersion();
 

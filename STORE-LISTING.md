@@ -58,12 +58,12 @@ English
 
 ## Support URL Placeholder
 
-Replace with your public issue tracker or project page.
+- `https://github.com/justgitgut/FaceBoot/issues`
 
-- `https://your-site.example/faceboot-support`
+
 
 ## Privacy Policy URL Placeholder
 
-If you publish this repository with GitHub Pages from the `docs/` folder, the privacy policy URL will usually be:
+If you publish this repository with GitHub Pages from the `docs/` folder, the privacy policy URL will be:
 
-- `https://<username>.github.io/<repo>/privacy/`
+- `https://justgitgut.github.io/FaceBoot/privacy/`
