@@ -1,19 +1,20 @@
-(() => {
+﻿(() => {
   "use strict";
 
-  if (window.__facebootNoRefreshInstalled) {
+  if (window.__facebergNoRefreshInstalled) {
     return;
   }
 
-  window.__facebootNoRefreshInstalled = true;
+  window.__facebergNoRefreshInstalled = true;
 
-  const BLOCK_MSG = "[FaceBoot] Blocked forced refresh call.";
-  const SUSPICIOUS_EVENT_TYPES = /^(visibilitychange|focus|blur|pageshow|resume|popstate|hashchange)$/;
-  const VOLATILE_REFRESH_PARAM_PATTERN = /^(?:__.*|fbclid|ref|refsrc|notif_id|notif_t|notif_type|acontext|paipv|locale|ti|eav|av|mibextid)$/i;
-  const RESUME_SUPPRESSION_WINDOW_MS = 5000;
+  const BLOCK_MSG = "[Faceberg] Blocked forced refresh call.";
+  const SUSPICIOUS_EVENT_TYPES = /^(visibilitychange|focus|blur|pageshow|pagehide|freeze|resume|popstate|hashchange)$/;
+  const VOLATILE_REFRESH_PARAM_PATTERN = /^(?:__.*|fbclid|ref|refsrc|notif_id|notif_t|notif_type|acontext|paipv|locale|ti|eav|av|mibextid|_rdc|_rdr|__tn__|__xts__|utm_[a-z0-9_]+)$/i;
+  const RESUME_SUPPRESSION_WINDOW_MS = 10000;
   let wasPageHidden = false;
   let reallyHidden = false;
   let resumeSuppressionUntil = 0;
+  let lastUserInteractionAt = 0;
 
   function isSuspiciousNavigationSource(source) {
     return /location\.reload\s*\(|\.reload\s*\(|history\.go\s*\(\s*0\s*\)|location\.(assign|replace)\s*\(|window\.location\s*=|document\.location\s*=|location\.href\s*=|document\.URL\s*=|visibilitystate|document\.hidden|popstate|hashchange/i.test(source);
@@ -25,6 +26,28 @@
     } catch (_error) {
       return null;
     }
+  }
+
+  function normalizePathname(pathname) {
+    const raw = String(pathname || "/");
+    const trimmed = raw.replace(/\/+$/, "");
+    return trimmed || "/";
+  }
+
+  function toNavigationTarget(input) {
+    if (input && typeof input === "object") {
+      if (typeof input.href === "string") {
+        return input.href;
+      }
+
+      try {
+        return String(input);
+      } catch (_error) {
+        return "";
+      }
+    }
+
+    return String(input ?? "");
   }
 
   function getCanonicalSearch(url) {
@@ -56,25 +79,27 @@
     const current = new URL(window.location.href);
     const sameOrigin = target.origin === current.origin;
     const samePath = sameOrigin && target.pathname === current.pathname;
+    const sameNormalizedPath = sameOrigin && normalizePathname(target.pathname) === normalizePathname(current.pathname);
     const sameSearch = samePath && target.search === current.search;
     const sameHash = samePath && target.hash === current.hash;
-    const sameCanonicalSearch = samePath && getCanonicalSearch(target) === getCanonicalSearch(current);
+    const sameCanonicalSearch = sameNormalizedPath && getCanonicalSearch(target) === getCanonicalSearch(current);
 
     return {
       target,
       current,
       sameOrigin,
       samePath,
+      sameNormalizedPath,
       sameSearch,
       sameHash,
       sameCanonicalSearch,
-      isHashOnlyChange: samePath && sameSearch && !sameHash
+      isHashOnlyChange: sameNormalizedPath && sameSearch && !sameHash
     };
   }
 
   function shouldBlockNavigationTarget(input) {
     const relation = getNavigationRelation(input);
-    if (!relation || !relation.sameOrigin || !relation.samePath) {
+    if (!relation || !relation.sameOrigin || !relation.sameNormalizedPath) {
       return false;
     }
 
@@ -189,7 +214,7 @@
           return undefined;
         };
 
-        holder[methodName].__facebootOriginal = original;
+        holder[methodName].__facebergOriginal = original;
       } catch (_error) {
         // Ignore if browser blocks overriding location methods.
       }
@@ -220,7 +245,7 @@
           return original.apply(this, args);
         };
 
-        holder[methodName].__facebootOriginal = original;
+        holder[methodName].__facebergOriginal = original;
       } catch (_error) {
         // Ignore if browser blocks overriding location methods.
       }
@@ -248,7 +273,7 @@
         return originalGo(...args);
       };
 
-      window.history.go.__facebootOriginal = originalGo;
+      window.history.go.__facebergOriginal = originalGo;
     } catch (_error) {
       // Ignore if browser blocks overriding history methods.
     }
@@ -274,7 +299,7 @@
         return originalAddEventListener.call(this, type, listener, options);
       };
 
-      EventTarget.prototype.addEventListener.__facebootOriginal = originalAddEventListener;
+      EventTarget.prototype.addEventListener.__facebergOriginal = originalAddEventListener;
     } catch (_error) {
       // Ignore if browser blocks overriding addEventListener.
     }
@@ -324,7 +349,7 @@
   function reportStat(stat, count) {
     window.postMessage(
       {
-        source: "faceboot",
+        source: "faceberg",
         kind: "stat",
         stat,
         count
@@ -370,6 +395,13 @@
         return true;
       }
 
+      return false;
+    }
+
+    if (eventType === "pagehide" || eventType === "freeze") {
+      reallyHidden = true;
+      wasPageHidden = true;
+      beginResumeSuppression(now);
       return false;
     }
 
@@ -451,6 +483,33 @@
     }
   }
 
+  function guardHostLocationSetter(hostPrototype, hostName) {
+    try {
+      const descriptor = Object.getOwnPropertyDescriptor(hostPrototype, "location");
+      if (!descriptor || typeof descriptor.set !== "function" || typeof descriptor.get !== "function") {
+        return;
+      }
+
+      Object.defineProperty(hostPrototype, "location", {
+        configurable: true,
+        enumerable: descriptor.enumerable ?? true,
+        get: descriptor.get,
+        set(value) {
+          const target = toNavigationTarget(value);
+          if (target && shouldBlockNavigationTarget(target)) {
+            console.debug(BLOCK_MSG, `${hostName}.location setter`, target);
+            reportStat("preventedRefreshes", 1);
+            return;
+          }
+
+          descriptor.set.call(this, value);
+        }
+      });
+    } catch (_error) {
+      // Ignore if browser blocks overriding host location setter.
+    }
+  }
+
   function spoofVisibilityState() {
     try {
       Object.defineProperty(document, "visibilityState", {
@@ -493,7 +552,7 @@
       Document.prototype.hasFocus = function () {
         return true;
       };
-      Document.prototype.hasFocus.__facebootOriginal = originalHasFocus;
+      Document.prototype.hasFocus.__facebergOriginal = originalHasFocus;
     } catch (_error) {
       // Ignore if browser blocks overriding hasFocus.
     }
@@ -523,41 +582,108 @@
         return originalOpen.apply(this, [url, target, ...rest]);
       };
 
-      window.open.__facebootOriginal = originalOpen;
+      window.open.__facebergOriginal = originalOpen;
     } catch (_error) {
       // Ignore if browser blocks overriding window.open.
     }
   }
 
+  function guardFetch() {
+    try {
+      const originalFetch = window.fetch;
+      if (typeof originalFetch !== "function") {
+        return;
+      }
+
+      window.fetch = function guardedFetch(resource, init) {
+        try {
+          if (resumeSuppressionUntil > Date.now()) {
+            const sinceInteraction = Date.now() - lastUserInteractionAt;
+            const isAutomatic = lastUserInteractionAt === 0 || sinceInteraction > 2000;
+
+            if (isAutomatic) {
+              const url = resource instanceof Request ? resource.url : String(resource ?? "");
+              const method = (
+                (init?.method) ||
+                (resource instanceof Request ? resource.method : undefined) ||
+                "GET"
+              ).toUpperCase();
+
+              if (method === "POST" && /\.facebook\.com\/api\/graphql\//i.test(url)) {
+                const delay = Math.max(200, resumeSuppressionUntil - Date.now() + 200);
+                console.debug(BLOCK_MSG, "delaying auto graphql feed-refresh", delay + "ms");
+                return new Promise((resolve, reject) => {
+                  setTimeout(() => {
+                    originalFetch.apply(window, [resource, init]).then(resolve, reject);
+                  }, delay);
+                });
+              }
+            }
+          }
+        } catch (_error) {
+          // Ignore guard check errors, fall through.
+        }
+
+        return originalFetch.apply(window, [resource, init]);
+      };
+
+      window.fetch.__facebergOriginal = originalFetch;
+    } catch (_error) {
+      // Ignore if browser blocks overriding fetch.
+    }
+  }
+
   function guardNavigationAPI() {
-    if (!window.navigation || typeof window.navigation.navigate !== "function") {
+    if (!window.navigation) {
       return;
     }
 
     try {
-      const originalNavigate = window.navigation.navigate.bind(window.navigation);
+      if (typeof window.navigation.navigate === "function") {
+        const originalNavigate = window.navigation.navigate.bind(window.navigation);
 
-      window.navigation.navigate = function (url, options) {
-        if (url && shouldBlockNavigationTarget(url)) {
-          console.debug(BLOCK_MSG, "navigation.navigate", url);
-          reportStat("preventedRefreshes", 1);
-          const aborted = Promise.reject(new DOMException("Blocked by FaceBoot", "AbortError"));
-          aborted.catch(() => {});
-          return { committed: aborted, finished: aborted };
-        }
+        window.navigation.navigate = function (url, options) {
+          if (url && shouldBlockNavigationTarget(url)) {
+            console.debug(BLOCK_MSG, "navigation.navigate", url);
+            reportStat("preventedRefreshes", 1);
+            const aborted = Promise.reject(new DOMException("Blocked by Faceberg", "AbortError"));
+            aborted.catch(() => {});
+            return { committed: aborted, finished: aborted };
+          }
 
-        return originalNavigate(url, options);
-      };
+          return originalNavigate(url, options);
+        };
 
-      window.navigation.navigate.__facebootOriginal = originalNavigate;
+        window.navigation.navigate.__facebergOriginal = originalNavigate;
+      }
     } catch (_error) {
       // Ignore if browser blocks overriding navigation.navigate.
+    }
+
+    try {
+      if (typeof window.navigation.reload === "function") {
+        const originalReload = window.navigation.reload.bind(window.navigation);
+
+        window.navigation.reload = function () {
+          console.debug(BLOCK_MSG, "navigation.reload");
+          reportStat("preventedRefreshes", 1);
+          const aborted = Promise.reject(new DOMException("Blocked by Faceberg", "AbortError"));
+          aborted.catch(() => {});
+          return { committed: aborted, finished: aborted };
+        };
+
+        window.navigation.reload.__facebergOriginal = originalReload;
+      }
+    } catch (_error) {
+      // Ignore if browser blocks overriding navigation.reload.
     }
   }
 
   guardLocationReload();
   guardLocationNavigationMethods();
   guardLocationHrefSetter();
+  guardHostLocationSetter(Window.prototype, "window");
+  guardHostLocationSetter(Document.prototype, "document");
   guardWindowOpen();
   guardNavigationAPI();
   guardLocationPropertySetter("search", (value) => {
@@ -571,6 +697,7 @@
     return nextUrl;
   });
   guardHistoryReloads();
+  guardFetch();
   guardSuspiciousLifecycleListeners();
   guardSuspiciousEventHandlerProperties();
   guardStringTimeoutReload();
@@ -579,6 +706,11 @@
 
   document.addEventListener("visibilitychange", suppressResumeLifecycleEvent, true);
   window.addEventListener("pageshow", suppressResumeLifecycleEvent, true);
+  document.addEventListener("click", () => { lastUserInteractionAt = Date.now(); }, { capture: true, passive: true });
+  document.addEventListener("keydown", () => { lastUserInteractionAt = Date.now(); }, { capture: true, passive: true });
+  document.addEventListener("touchstart", () => { lastUserInteractionAt = Date.now(); }, { capture: true, passive: true });
+  window.addEventListener("pagehide", suppressResumeLifecycleEvent, true);
+  window.addEventListener("freeze", suppressResumeLifecycleEvent, true);
   window.addEventListener("focus", suppressResumeLifecycleEvent, true);
   window.addEventListener("resume", suppressResumeLifecycleEvent, true);
 
