@@ -1,6 +1,6 @@
-# Comment Automation Notes
+﻿# Comment Automation Notes
 
-This document captures the working structure of FaceBoot comment automation and the failure modes that repeatedly caused regressions.
+This document captures the working structure of Faceberg comment automation and the failure modes that repeatedly caused regressions.
 
 ## Working Model
 

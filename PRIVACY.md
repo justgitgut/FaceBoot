@@ -1,12 +1,12 @@
-# Privacy Policy for FaceBoot
+﻿# Privacy Policy for Faceberg
 
 Last updated: March 22, 2026
 
-FaceBoot does not sell personal data, does not send browsing data to any server, and does not use analytics, ads, or remote code.
+Faceberg does not sell personal data, does not send browsing data to any server, and does not use analytics, ads, or remote code.
 
-## What FaceBoot accesses
+## What Faceberg accesses
 
-FaceBoot runs only on:
+Faceberg runs only on:
 
 - `https://www.facebook.com/*`
 - `https://web.facebook.com/*`
@@ -18,9 +18,9 @@ It reads page content on those domains in order to:
 - reduce forced Facebook reload behavior
 - optionally redirect Facebook tabs to the All Feed view
 
-## What data FaceBoot stores
+## What data Faceberg stores
 
-FaceBoot stores extension settings and local activity counters using Chrome extension storage:
+Faceberg stores extension settings and local activity counters using Chrome extension storage:
 
 - `chrome.storage.sync` for settings, when available
 - `chrome.storage.local` for settings fallback and activity stats
@@ -30,7 +30,7 @@ Stored data is limited to:
 - on/off feature preferences
 - aggregate counters such as removed items, expanded posts, expanded comment actions, and prevented refreshes
 
-FaceBoot does not intentionally store:
+Faceberg does not intentionally store:
 
 - Facebook account credentials
 - message contents
@@ -39,15 +39,15 @@ FaceBoot does not intentionally store:
 - browsing history outside Facebook
 - personally identifying analytics
 
-## What data FaceBoot transmits
+## What data Faceberg transmits
 
-FaceBoot does not transmit collected data to the developer or to third parties.
+Faceberg does not transmit collected data to the developer or to third parties.
 
 All processing happens locally in the browser.
 
 ## Third-party services
 
-FaceBoot does not use third-party analytics, ad networks, trackers, or external APIs.
+Faceberg does not use third-party analytics, ad networks, trackers, or external APIs.
 
 ## Data retention
 
@@ -71,4 +71,4 @@ You can:
 
 Support and privacy questions can be directed to the public issue tracker:
 
-- `https://github.com/justgitgut/FaceBoot/issues`
+- `https://github.com/justgitgut/Faceberg/issues`

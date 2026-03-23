@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   "use strict";
 
   const FEEDS_URL = "https://www.facebook.com/?filter=all&sk=h_chr&sorting_setting=CHRONOLOGICAL";
@@ -11,7 +11,7 @@
     "*://web.facebook.com/*"
   ];
   const CONTENT_SCRIPT_FILES = ["shared-stats.js", "content-utils.js", "content-debug.js", "content-feed.js", "content-comments.js", "content.js"];
-  const ANTI_REFRESH_SCRIPT_ID = "faceboot-anti-refresh";
+  const ANTI_REFRESH_SCRIPT_ID = "faceberg-anti-refresh";
   const SESSION_STATS_DEFAULTS = {
     sessionRemovedReels: 0,
     sessionRemovedFollowPosts: 0,
@@ -101,21 +101,21 @@
     return /^https?:\/\/(www|web)\.facebook\.com\//i.test(String(url || ""));
   }
 
-  async function hasFaceBootContentScript(tabId) {
+  async function hasFacebergContentScript(tabId) {
     try {
-      const response = await chrome.tabs.sendMessage(tabId, { type: "faceboot:ping" });
+      const response = await chrome.tabs.sendMessage(tabId, { type: "faceberg:ping" });
       return response?.ok === true;
     } catch (_error) {
       return false;
     }
   }
 
-  async function ensureFaceBootInjected(tabId) {
+  async function ensureFacebergInjected(tabId) {
     if (typeof tabId !== "number" || tabId < 0) {
       return;
     }
 
-    if (await hasFaceBootContentScript(tabId)) {
+    if (await hasFacebergContentScript(tabId)) {
       return;
     }
 
@@ -152,7 +152,7 @@
 
     try {
       const settings = await readSettings();
-      await ensureFaceBootInjected(tab.id);
+      await ensureFacebergInjected(tab.id);
       if (settings.enableAntiRefresh === true) {
         await ensureAntiRefreshInjected(tab.id);
       }
@@ -209,7 +209,7 @@
         tabs
           .filter((tab) => typeof tab.id === "number")
           .map(async (tab) => {
-            await ensureFaceBootInjected(tab.id);
+            await ensureFacebergInjected(tab.id);
             if (settings.enableAntiRefresh === true) {
               await ensureAntiRefreshInjected(tab.id);
             }
@@ -274,7 +274,7 @@
   });
 
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-    if (message?.type !== "faceboot:protect-tab") {
+    if (message?.type !== "faceberg:protect-tab") {
       return false;
     }
 

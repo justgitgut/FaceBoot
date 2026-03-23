@@ -1,4 +1,4 @@
-# FaceBoot
+﻿# Faceberg
 
 Chrome extension that declutters your Facebook feed, auto-expands posts and visible comment threads, keeps supported feed and group URLs chronological, and offers optional anti-refresh protection.
 
@@ -13,7 +13,7 @@ Chrome extension that declutters your Facebook feed, auto-expands posts and visi
 1. Open `chrome://extensions`.
 2. Turn on **Developer mode**.
 3. Click **Load unpacked**.
-4. Select this folder (`FaceBoot`).
+4. Select this folder (`Faceberg`).
 
 ## Publish Prep
 
@@ -27,7 +27,7 @@ Chrome extension that declutters your Facebook feed, auto-expands posts and visi
 ## Settings
 
 1. Click the extension icon in Chrome.
-2. Open **FaceBoot** popup settings.
+2. Open **Faceberg** popup settings.
 3. Review live stats in the popup header:
    - Use the Activity tab to switch between `This Session` and `All Time`
    - Review grouped counters for Feed Cleanup and Automated Actions
@@ -46,7 +46,7 @@ Chrome extension that declutters your Facebook feed, auto-expands posts and visi
 6. If **Go directly to feeds on activation** is enabled, Apply will open Facebook tabs on:
 	- `https://www.facebook.com/?filter=all&sk=h_chr&sorting_setting=CHRONOLOGICAL`
 
-When you open a root group page such as `https://www.facebook.com/groups/<group-id>`, FaceBoot also appends `sorting_setting=CHRONOLOGICAL` to the URL.
+When you open a root group page such as `https://www.facebook.com/groups/<group-id>`, Faceberg also appends `sorting_setting=CHRONOLOGICAL` to the URL.
 
 Note: anti-refresh protection is off by default and should be treated as an optional compatibility feature.
 

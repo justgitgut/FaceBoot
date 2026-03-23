@@ -1,7 +1,7 @@
-(() => {
+﻿(() => {
   "use strict";
 
-  if (globalThis.FaceBootContentUtils) {
+  if (globalThis.FacebergContentUtils) {
     return;
   }
 
@@ -249,7 +249,7 @@
     return true;
   }
 
-  globalThis.FaceBootContentUtils = Object.freeze({
+  globalThis.FacebergContentUtils = Object.freeze({
     ENGLISH_UI_DICTIONARY,
     uiMatchers,
     normalizeText,

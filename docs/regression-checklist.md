@@ -1,4 +1,4 @@
-# FaceBoot Regression Checklist
+﻿# Faceberg Regression Checklist
 
 Use this checklist after changing feed cleanup, post expansion, comment expansion, or page-observer logic.
 
@@ -31,7 +31,7 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 3. Open a post dialog from the feed.
 4. Verify the comment-ordering popup opens only for the active dialog.
 5. Confirm `All comments` becomes the selected option in the dialog.
-6. Confirm `Filter changes` increments by 1 when FaceBoot actually switches the sorter away from `Most relevant` or `Newest`.
+6. Confirm `Filter changes` increments by 1 when Faceberg actually switches the sorter away from `Most relevant` or `Newest`.
 7. Verify visible comment/reply expansion works after sorting changes.
 8. Confirm no unrelated post or menu is opened.
 8. Open a `/reel/` page or Reels route with one clearly visible active reel.
@@ -64,7 +64,7 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 2. Close it and open a different post's comments.
 3. Open a photo from the feed.
 4. Repeat the sequence at least three times.
-5. Confirm FaceBoot does not enter a state where random older posts reopen on each new comment/photo click.
+5. Confirm Faceberg does not enter a state where random older posts reopen on each new comment/photo click.
 
 ## Observer / Navigation Checks
 

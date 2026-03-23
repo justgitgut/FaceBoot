@@ -1,6 +1,6 @@
-# Chrome Web Store Privacy Questionnaire Guide
+﻿# Chrome Web Store Privacy Questionnaire Guide
 
-This is a practical answer key for the Chrome Web Store privacy section based on the current FaceBoot codebase.
+This is a practical answer key for the Chrome Web Store privacy section based on the current Faceberg codebase.
 
 Review it again before submission in case the extension changes.
 
@@ -115,4 +115,4 @@ Required so the extension can read and modify the Facebook web interface where t
 
 ## Reviewer Notes You Can Reuse
 
-FaceBoot works only on Facebook web pages, processes page content locally in the browser, stores only settings and aggregate counters, and does not transmit Facebook content or user data to any external server.
+Faceberg works only on Facebook web pages, processes page content locally in the browser, stores only settings and aggregate counters, and does not transmit Facebook content or user data to any external server.

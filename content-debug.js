@@ -1,11 +1,11 @@
-(() => {
+﻿(() => {
   "use strict";
 
-  if (globalThis.FaceBootContentDebug) {
+  if (globalThis.FacebergContentDebug) {
     return;
   }
 
-  const contentUtils = globalThis.FaceBootContentUtils;
+  const contentUtils = globalThis.FacebergContentUtils;
   if (!contentUtils) {
     return;
   }
@@ -13,7 +13,7 @@
   const { normalizeText } = contentUtils;
   const DEBUG_COMMENT_AUTOMATION = true;
   const DEBUG_COMMENT_AUTOMATION_CONSOLE = false;
-  const DEBUG_SUMMARY_ATTRIBUTE = "data-faceboot-debug-summary";
+  const DEBUG_SUMMARY_ATTRIBUTE = "data-faceberg-debug-summary";
 
   function createEmptyDebugSummary() {
     return {
@@ -26,20 +26,20 @@
   }
 
   function ensureDebugState() {
-    if (!window.__FACEBOOT_DEBUG_SUMMARY || typeof window.__FACEBOOT_DEBUG_SUMMARY !== "object") {
-      window.__FACEBOOT_DEBUG_SUMMARY = createEmptyDebugSummary();
+    if (!window.__FACEBERG_DEBUG_SUMMARY || typeof window.__FACEBERG_DEBUG_SUMMARY !== "object") {
+      window.__FACEBERG_DEBUG_SUMMARY = createEmptyDebugSummary();
     }
 
-    if (!Array.isArray(window.__FACEBOOT_DEBUG_LOGS)) {
-      window.__FACEBOOT_DEBUG_LOGS = [];
+    if (!Array.isArray(window.__FACEBERG_DEBUG_LOGS)) {
+      window.__FACEBERG_DEBUG_LOGS = [];
     }
 
-    if (typeof window.__FACEBOOT_DEBUG_REPORT !== "function") {
-      window.__FACEBOOT_DEBUG_REPORT = () => JSON.parse(JSON.stringify(window.__FACEBOOT_DEBUG_SUMMARY));
+    if (typeof window.__FACEBERG_DEBUG_REPORT !== "function") {
+      window.__FACEBERG_DEBUG_REPORT = () => JSON.parse(JSON.stringify(window.__FACEBERG_DEBUG_SUMMARY));
     }
 
-    syncDebugSummaryToPage(window.__FACEBOOT_DEBUG_SUMMARY);
-    return window.__FACEBOOT_DEBUG_SUMMARY;
+    syncDebugSummaryToPage(window.__FACEBERG_DEBUG_SUMMARY);
+    return window.__FACEBERG_DEBUG_SUMMARY;
   }
 
   function syncDebugSummaryToPage(summary) {
@@ -164,8 +164,8 @@
       summary.recent.splice(0, summary.recent.length - 20);
     }
 
-    window.__FACEBOOT_DEBUG_SUMMARY = summary;
-    window.__FACEBOOT_DEBUG_REPORT = () => JSON.parse(JSON.stringify(window.__FACEBOOT_DEBUG_SUMMARY));
+    window.__FACEBERG_DEBUG_SUMMARY = summary;
+    window.__FACEBERG_DEBUG_REPORT = () => JSON.parse(JSON.stringify(window.__FACEBERG_DEBUG_SUMMARY));
     syncDebugSummaryToPage(summary);
     return summary;
   }
@@ -184,19 +184,19 @@
         ...details
       };
 
-      const existingLogs = Array.isArray(window.__FACEBOOT_DEBUG_LOGS)
-        ? window.__FACEBOOT_DEBUG_LOGS
+      const existingLogs = Array.isArray(window.__FACEBERG_DEBUG_LOGS)
+        ? window.__FACEBERG_DEBUG_LOGS
         : [];
       existingLogs.push(payload);
       if (existingLogs.length > 200) {
         existingLogs.splice(0, existingLogs.length - 200);
       }
-      window.__FACEBOOT_DEBUG_LOGS = existingLogs;
+      window.__FACEBERG_DEBUG_LOGS = existingLogs;
       const summary = updateDebugSummary(step, details);
 
       if (DEBUG_COMMENT_AUTOMATION_CONSOLE) {
-        console.log("[FaceBoot]", payload);
-        console.log("[FaceBootSummary]", summary);
+        console.log("[Faceberg]", payload);
+        console.log("[FacebergSummary]", summary);
       }
     } catch {
       // Ignore console serialization failures.
@@ -205,7 +205,7 @@
 
   ensureDebugState();
 
-  globalThis.FaceBootContentDebug = Object.freeze({
+  globalThis.FacebergContentDebug = Object.freeze({
     describeElement,
     compactDebugValue,
     debugCommentAutomation

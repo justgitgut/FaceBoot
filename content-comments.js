@@ -1,12 +1,12 @@
-(() => {
+﻿(() => {
   "use strict";
 
-  if (globalThis.FaceBootCommentsRuntime) {
+  if (globalThis.FacebergCommentsRuntime) {
     return;
   }
 
-  const contentUtils = globalThis.FaceBootContentUtils;
-  const contentDebug = globalThis.FaceBootContentDebug;
+  const contentUtils = globalThis.FacebergContentUtils;
+  const contentDebug = globalThis.FacebergContentDebug;
   if (!contentUtils || !contentDebug) {
     return;
   }
@@ -2364,7 +2364,7 @@
     return "expanded";
   }
 
-  globalThis.FaceBootCommentsRuntime = Object.freeze({
+  globalThis.FacebergCommentsRuntime = Object.freeze({
     isDirectPostPage,
     isMediaViewerPage,
     isReelExperiencePage,

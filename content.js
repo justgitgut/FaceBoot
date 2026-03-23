@@ -1,14 +1,14 @@
-(() => {
+﻿(() => {
   "use strict";
 
-  if (window.__facebootContentScriptInstalled) {
+  if (window.__facebergContentScriptInstalled) {
     return;
   }
 
-  window.__facebootContentScriptInstalled = true;
+  window.__facebergContentScriptInstalled = true;
 
   const DEFAULT_SETTINGS = {
-    enableAntiRefresh: false,
+    enableAntiRefresh: true,
     enableFeedFilter: true,
     enablePostExpansion: true,
     enableCommentExpansion: true,
@@ -18,7 +18,7 @@
     enableBlockJoinPosts: true,
     enableGoDirectlyToFeeds: false
   };
-  const sharedStats = globalThis.FaceBootStats || {};
+  const sharedStats = globalThis.FacebergStats || {};
   const STATS_DEFAULTS = sharedStats.DEFAULT_STATS || {
     removedReels: 0,
     removedFollowPosts: 0,
@@ -57,7 +57,7 @@
      no-op press during startup hydration. */
   const postExpanderAttemptState = new WeakMap();
   let lastObservedUrl = window.location.href;
-  const contentUtils = globalThis.FaceBootContentUtils;
+  const contentUtils = globalThis.FacebergContentUtils;
   if (!contentUtils) {
     return;
   }
@@ -69,11 +69,11 @@
     isVisible,
     pressElement
   } = contentUtils;
-  const contentFeed = globalThis.FaceBootFeedRuntime;
+  const contentFeed = globalThis.FacebergFeedRuntime;
   if (!contentFeed) {
     return;
   }
-  const contentComments = globalThis.FaceBootCommentsRuntime;
+  const contentComments = globalThis.FacebergCommentsRuntime;
   if (!contentComments) {
     return;
   }
@@ -231,7 +231,7 @@
       return;
     }
 
-    const existingScript = document.querySelector('script[data-faceboot-main-world="true"]');
+    const existingScript = document.querySelector('script[data-faceberg-main-world="true"]');
     if (existingScript) {
       antiRefreshInjected = true;
       return;
@@ -245,7 +245,7 @@
       return;
     }
     script.async = false;
-    script.dataset.facebootMainWorld = "true";
+    script.dataset.facebergMainWorld = "true";
     script.addEventListener("load", () => script.remove(), { once: true });
     script.addEventListener("error", () => script.remove(), { once: true });
     (document.documentElement || document.head || document.body).appendChild(script);
@@ -258,7 +258,7 @@
     }
 
     try {
-      chrome.runtime.sendMessage({ type: "faceboot:protect-tab" }).catch((error) => {
+      chrome.runtime.sendMessage({ type: "faceberg:protect-tab" }).catch((error) => {
         markExtensionContextInvalid(error);
         /* Ignore transient service-worker wakeup or messaging failures. */
       });
@@ -654,12 +654,12 @@
 
   if (canUseExtensionApis()) {
     chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-      if (message?.type === "faceboot:ping") {
+      if (message?.type === "faceberg:ping") {
         sendResponse({ ok: true });
         return false;
       }
 
-      if (message?.type === "faceboot:rerun") {
+      if (message?.type === "faceberg:rerun") {
         scheduleDocumentPasses();
         sendResponse({ ok: true });
         return false;
@@ -736,7 +736,7 @@
     }
 
     const data = event.data;
-    if (data.source !== "faceboot" || data.kind !== "stat") {
+    if (data.source !== "faceberg" || data.kind !== "stat") {
       return;
     }
 

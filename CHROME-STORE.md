@@ -1,4 +1,4 @@
-# Chrome Web Store Publishing Checklist
+﻿# Chrome Web Store Publishing Checklist
 
 This repository is prepared for packaging, but Chrome Web Store publication still requires store-listing assets and publisher-side configuration.
 
@@ -6,7 +6,7 @@ This repository is prepared for packaging, but Chrome Web Store publication stil
 
 - MV3 manifest and extension source
 - 128px extension icon
-- reduced permission surface (`storage`, `tabs`)
+- reduced permission surface (`storage`, `tabs`, `scripting`)
 - privacy policy draft in [PRIVACY.md](PRIVACY.md)
 - store listing copy in [STORE-LISTING.md](STORE-LISTING.md)
 - privacy questionnaire guide in [PRIVACY-QUESTIONNAIRE.md](PRIVACY-QUESTIONNAIRE.md)
@@ -26,8 +26,8 @@ This repository is prepared for packaging, but Chrome Web Store publication stil
 - Listing copy: [STORE-LISTING.md](STORE-LISTING.md)
 - Privacy policy: [PRIVACY.md](PRIVACY.md)
 - Privacy questionnaire answers: [PRIVACY-QUESTIONNAIRE.md](PRIVACY-QUESTIONNAIRE.md)
-- Suggested support URL: `https://github.com/justgitgut/FaceBoot/issues`
-- Suggested privacy-policy URL if GitHub Pages is enabled: `https://justgitgut.github.io/FaceBoot/privacy/`
+- Suggested support URL: `https://github.com/justgitgut/Faceberg/issues`
+- Suggested privacy-policy URL if GitHub Pages is enabled: `https://justgitgut.github.io/Faceberg/privacy/`
 
 ## Permission justifications
 

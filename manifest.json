@@ -1,6 +1,6 @@
-{
+﻿{
   "manifest_version": 3,
-  "name": "FaceBoot",
+  "name": "Faceberg",
   "version": "1.0.1",
   "description": "Hide Facebook feed clutter, expand posts and comment threads, and optionally reduce disruptive tab refreshes.",
   "permissions": ["storage", "tabs", "scripting"],
@@ -37,7 +37,7 @@
     "128": "icons/icon128.png"
   },
   "action": {
-    "default_title": "FaceBoot",
+    "default_title": "Faceberg",
     "default_popup": "popup.html",
     "default_icon": {
       "16":  "icons/icon16.png",

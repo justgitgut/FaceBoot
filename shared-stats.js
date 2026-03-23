@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   "use strict";
 
   const CLEANUP_STATS = [
@@ -25,7 +25,7 @@
   const DEFAULT_STATS = Object.fromEntries(ALL_STATS.map(({ key }) => [key, 0]));
   const SESSION_STATS_DEFAULTS = Object.fromEntries(ALL_STATS.map(({ key }) => [toSessionKey(key), 0]));
 
-  globalThis.FaceBootStats = {
+  globalThis.FacebergStats = {
     CLEANUP_STATS,
     ACTIVITY_STATS,
     ALL_STATS,

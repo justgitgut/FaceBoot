@@ -1,11 +1,11 @@
-(() => {
+﻿(() => {
   "use strict";
 
-  if (globalThis.FaceBootFeedRuntime) {
+  if (globalThis.FacebergFeedRuntime) {
     return;
   }
 
-  const contentUtils = globalThis.FaceBootContentUtils;
+  const contentUtils = globalThis.FacebergContentUtils;
   if (!contentUtils) {
     return;
   }
@@ -439,7 +439,7 @@
     hideReelsContainers(root, deps);
   }
 
-  globalThis.FaceBootFeedRuntime = Object.freeze({
+  globalThis.FacebergFeedRuntime = Object.freeze({
     runFeedCleanup
   });
 })();

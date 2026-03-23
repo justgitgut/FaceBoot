@@ -1,38 +1,10 @@
-# Chrome Web Store Listing Copy
-
-This file is intended to be pasted into the Chrome Web Store listing fields with minimal editing.
+﻿# Chrome Web Store Listing Copy
 
 ## Extension Name
 
-FaceBoot
+Faceberg
 
-## Short Description
-
-Clean up Facebook, expand long posts and comment threads, and optionally reduce disruptive reloads.
-
-## Detailed Description
-
-FaceBoot makes Facebook less noisy and more readable.
-
-It removes common feed clutter, expands useful content automatically, and offers optional anti-refresh protection for people who want to reduce disruptive reload behavior when returning to a Facebook tab.
-
-Features:
-
-- Hide Reels, Stories, sponsored posts, and People You May Know.
-- Optionally hide Follow and Join feed cards.
-- Expand long posts automatically.
-- Expand comment threads and comment loading controls.
-- Optionally enable anti-refresh protection.
-- Optionally open Facebook directly on All Feed.
-- Show lightweight local activity counters in the popup.
-
-FaceBoot works only on Facebook web pages and processes content locally in your browser. It does not send your Facebook activity or page content to external servers.
-
-## Single Purpose Description
-
-FaceBoot customizes the Facebook web interface by hiding feed clutter, expanding truncated content, and offering optional anti-refresh protection.
-
-## Category Suggestion
+## Category
 
 Productivity
 
@@ -40,30 +12,37 @@ Productivity
 
 English
 
-## Store Assets To Prepare
+## Short Description
 
-- 1 small promotional tile if you want better listing visuals
-- 1 to 5 screenshots showing:
-  - popup settings
-  - feed cleanup in action
-  - post expansion in action
-  - activity stats view
+Declutters Facebook by hiding selected modules, expanding visible content, and offering optional anti-refresh behavior.
 
-## Screenshot Caption Drafts
+## Detailed Description
 
-- Choose what Facebook should hide or expand.
-- Clean up noisy feed modules with one popup.
-- Expand long posts and comment threads automatically.
-- Review what FaceBoot changed in local activity stats.
+Faceberg modifies the Facebook web interface.
 
-## Support URL Placeholder
+It can hide selected feed modules, including Reels, Stories, sponsored posts, People You May Know, and optional Follow and Join cards.
 
-- `https://github.com/justgitgut/FaceBoot/issues`
+It can expand visible truncated posts and visible comment threads. In supported post dialogs, it can switch the comment view to All comments before expansion.
 
+When enabled, anti-refresh protection reduces forced reload behavior when returning to a Facebook tab.
 
+Faceberg stores settings and activity counters locally in the browser and does not transmit Facebook content to external servers.
 
-## Privacy Policy URL Placeholder
+## Single Purpose Statement
 
-If you publish this repository with GitHub Pages from the `docs/` folder, the privacy policy URL will be:
+Faceberg modifies the Facebook web interface by hiding selected feed modules, expanding visible content, and optionally reducing tab-return reloads.
 
-- `https://justgitgut.github.io/FaceBoot/privacy/`
+## Screenshot Captions
+
+1. Select feed and automation options in the popup.
+2. Feed cleanup removes selected modules like Reels and sponsored posts.
+3. Post and comment expansion opens visible truncated content.
+4. Activity counters summarize actions taken by Faceberg.
+
+## Support URL
+
+https://github.com/justgitgut/Faceberg/issues
+
+## Privacy Policy URL
+
+https://justgitgut.github.io/Faceberg/privacy/

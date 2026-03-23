@@ -1,8 +1,8 @@
-# FaceBoot Architecture v2
+﻿# Faceberg Architecture v2
 
 ## Goal
 
-FaceBoot is scoped to three stable behaviors:
+Faceberg is scoped to three stable behaviors:
 
 1. Filter unwanted Facebook feed content by removing it from the DOM.
 2. Expand truncated post bodies.
@@ -73,7 +73,7 @@ FaceBoot is scoped to three stable behaviors:
 
 Prefer stable DOM transformations and narrowly scoped UI workflows over broad transient popup automation.
 
-If a behavior requires broad popup steering, React internals, or synthetic recovery clicks outside the active dialog, it is outside the default FaceBoot automation boundary and should remain disabled unless reintroduced as a clearly isolated experimental feature.
+If a behavior requires broad popup steering, React internals, or synthetic recovery clicks outside the active dialog, it is outside the default Faceberg automation boundary and should remain disabled unless reintroduced as a clearly isolated experimental feature.
 
 ## Regression Triggers To Avoid
 
