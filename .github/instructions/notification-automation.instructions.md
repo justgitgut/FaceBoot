@@ -12,6 +12,7 @@ applyTo: "content.js, content-comments.js, content-feed.js, content-utils.js"
 - Documentation-only changes do not require this approval rule unless they are bundled with code or behavior changes.
 - Do not automatically commit or push matched-file changes, especially when they are not yet validated against the regression checklist.
 - Commit and push only on explicit user request.
+- Approval to edit matched files is not approval to commit or push them; that requires a separate explicit user request.
 - Treat notification-driven navigation as a high-risk regression area.
 - Never allow document-level fallback onto stale feed surfaces during notification navigation.
 - Preserve notification suppression across:
