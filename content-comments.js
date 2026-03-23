@@ -2184,6 +2184,19 @@
       return commentArticles.length >= 2 || !!host.querySelector('[role="list"] [role="article"], [aria-live] [role="article"]');
     }
 
+    function hasInlineCommentUi(host) {
+      if (!(host instanceof Element)) {
+        return false;
+      }
+
+      return (
+        hasRenderedCommentThread(host) ||
+        hasVisibleCommentComposer(host) ||
+        !!getCommentSorterToggle(host) ||
+        !!host.querySelector('[role="list"], [aria-live], ul, ol')
+      );
+    }
+
     function hasCommentContext(control) {
       const host = control.closest('[role="dialog"], div[role="article"], [data-pagelet], main, [role="main"], [role="complementary"]') || document;
       const hasComposer = hasVisibleCommentComposer(host);
@@ -2295,6 +2308,14 @@
       const controlKind = getCommentExpanderKind(control);
       const isCommentSummaryControl = controlKind === "summary" || controlKind === "replySummary";
       const isLoadMoreCommentControl = controlKind === "loadMore" || controlKind === "replyLoadMore";
+
+      if (
+        isDialogSurface &&
+        !hasInlineCommentUi(activeDialog) &&
+        isPrimaryCommentOpener(control)
+      ) {
+        return false;
+      }
 
       if (
         onDirectPostPage &&
