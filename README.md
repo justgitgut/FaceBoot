@@ -1,4 +1,8 @@
-﻿# Faceberg
+﻿<p align="center">
+	<img src="icons/logo.png" alt="Faceberg logo" width="420" />
+</p>
+
+# Faceberg
 
 Chrome extension that declutters your Facebook feed, auto-expands posts and visible comment threads, keeps supported feed and group URLs chronological, and offers optional anti-refresh protection.
 
