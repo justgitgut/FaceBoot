@@ -1059,6 +1059,38 @@
 
     const candidates = getMenuItemActivationCandidates(item);
     const selectedItemBefore = getMenuItemDebugState(item);
+    const surface = item.closest('[role="dialog"], div[role="article"], [data-pagelet], main, [role="main"], [role="complementary"]');
+    const previousToggle = surface instanceof Element ? getCommentSorterToggle(surface) : null;
+    const previousToggleText = normalizeText(previousToggle?.textContent || previousToggle?.getAttribute?.("aria-label"));
+
+    function didSelectionApply() {
+      if (!(surface instanceof Element)) {
+        return false;
+      }
+
+      const currentToggle = getCommentSorterToggle(surface);
+      const currentToggleText = normalizeText(currentToggle?.textContent || currentToggle?.getAttribute?.("aria-label"));
+      if (matchesAllCommentsText(currentToggleText)) {
+        return true;
+      }
+
+      const openMenu = getCommentSortMenu(surface, currentToggle);
+      if (openMenu) {
+        const selectedAllCommentsItem = openMenu.items.find((candidate) => {
+          return matchesAllCommentsText(getMenuItemMatchText(candidate)) && isMenuItemSelected(candidate);
+        });
+
+        if (selectedAllCommentsItem) {
+          return true;
+        }
+      }
+
+      if (previousToggleText && currentToggleText && currentToggleText !== previousToggleText) {
+        return matchesAllCommentsText(currentToggleText);
+      }
+
+      return false;
+    }
 
     for (const candidate of candidates) {
       debugCommentAutomation("filter-selection-attempt", {
@@ -1069,7 +1101,9 @@
       try {
         if (typeof candidate.click === "function") {
           candidate.click();
-          return true;
+          if (didSelectionApply()) {
+            return true;
+          }
         }
       } catch {
         /* Ignore native click failures. */
@@ -1079,7 +1113,7 @@
         dispatchKeyboard: false,
         dispatchSyntheticClick: true,
         dispatchNativeClick: false
-      })) {
+      }) && didSelectionApply()) {
         return true;
       }
 
@@ -1087,7 +1121,7 @@
         dispatchKeyboard: false,
         dispatchSyntheticClick: false,
         dispatchNativeClick: true
-      })) {
+      }) && didSelectionApply()) {
         return true;
       }
     }

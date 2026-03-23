@@ -34,6 +34,10 @@
 - Added notification-aware suppression so feed cleanup, post expansion, comment automation, delayed retries, and mutation watchers stand down while the notifications surface is active and while notification-driven navigation is settling.
 - Removed navigation-prone generic primary comment opener automation from direct post handling to avoid wrong-post opens, stacked dialogs, and parent-group-feed misroutes.
 
+### Fixed — Comment Filtering
+
+- Hardened `All comments` selection so menu-item clicks only count as success when the sorter UI actually changes, preventing popup flicker loops that leave the filter on `Most relevant` or `Newest`.
+
 ### Documentation
 
 - Added explicit notification-navigation guardrails and regression coverage so future automation changes do not reintroduce random post opens from notifications.
