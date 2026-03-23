@@ -20,6 +20,7 @@
 - Added `pagehide` and `freeze` to `SUSPICIOUS_EVENT_TYPES` alongside the existing visibility/focus events.
 - Increased `RESUME_SUPPRESSION_WINDOW_MS` from 5 000 ms to 10 000 ms.
 - Added `lastUserInteractionAt` tracking to inform smarter suppression decisions.
+- Fixed a default-settings mismatch between `background.js` and `content.js` so protected Facebook tabs no longer remain discardable by default and reload after long idle periods.
 
 ### Improved — Popup
 
