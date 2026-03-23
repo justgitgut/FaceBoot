@@ -1657,6 +1657,85 @@
     }
   }
 
+  function normalizePathname(pathname) {
+    const raw = String(pathname || "/");
+    const trimmed = raw.replace(/\/+$/, "");
+    return trimmed || "/";
+  }
+
+  function getDirectTargetIdentifiers(urlLike) {
+    let parsedUrl;
+    try {
+      parsedUrl = urlLike instanceof URL ? urlLike : new URL(String(urlLike), window.location.href);
+    } catch {
+      return [];
+    }
+
+    const identifiers = new Set();
+    const path = normalizePathname(parsedUrl.pathname);
+    const postIdMatch = path.match(/\/(?:posts|permalink|videos|reel)\/(\d+)(?:\/|$)/i);
+    if (postIdMatch?.[1]) {
+      identifiers.add(postIdMatch[1]);
+    }
+
+    const storyFbid = parsedUrl.searchParams.get("story_fbid") || parsedUrl.searchParams.get("fbid");
+    if (storyFbid) {
+      identifiers.add(String(storyFbid));
+    }
+
+    return [...identifiers];
+  }
+
+  function urlMatchesCurrentDirectTarget(urlLike) {
+    let candidateUrl;
+    let currentUrl;
+    try {
+      candidateUrl = urlLike instanceof URL ? urlLike : new URL(String(urlLike), window.location.href);
+      currentUrl = new URL(window.location.href);
+    } catch {
+      return false;
+    }
+
+    if (candidateUrl.origin !== currentUrl.origin) {
+      return false;
+    }
+
+    const currentIdentifiers = getDirectTargetIdentifiers(currentUrl);
+    const candidateIdentifiers = getDirectTargetIdentifiers(candidateUrl);
+    if (currentIdentifiers.length > 0 && candidateIdentifiers.length > 0) {
+      return currentIdentifiers.some((identifier) => candidateIdentifiers.includes(identifier));
+    }
+
+    return normalizePathname(candidateUrl.pathname) === normalizePathname(currentUrl.pathname);
+  }
+
+  function surfaceMatchesCurrentDirectTarget(surface) {
+    if (!(surface instanceof Element) || !isVisible(surface) || !isDirectPostPage()) {
+      return false;
+    }
+
+    if (surface.matches('a[href]') && urlMatchesCurrentDirectTarget(surface.getAttribute("href") || "")) {
+      return true;
+    }
+
+    return [...surface.querySelectorAll('a[href]')].some((link) => {
+      return urlMatchesCurrentDirectTarget(link.getAttribute("href") || "");
+    });
+  }
+
+  function isDirectPostDomReady(root = document) {
+    if (!isDirectPostPage()) {
+      return false;
+    }
+
+    const surface = getCommentSurface(root);
+    return !!(
+      surface instanceof Element &&
+      canAutomateCommentSurface(surface) &&
+      surfaceMatchesCurrentDirectTarget(surface)
+    );
+  }
+
   function isLikelyPostNavigationHref(href) {
     if (!href) {
       return false;
@@ -1894,11 +1973,22 @@
       }
 
       const resolvedSurface = getCommentSurface(document);
-      if (resolvedSurface && canAutomateCommentSurface(resolvedSurface)) {
+      if (
+        resolvedSurface &&
+        canAutomateCommentSurface(resolvedSurface) &&
+        (!isDirectPostPage() || surfaceMatchesCurrentDirectTarget(resolvedSurface))
+      ) {
         debugCommentAutomation("resolve-root-page-surface", {
           resolved: describeElement(resolvedSurface)
         });
         return resolvedSurface;
+      }
+
+      if (isDirectPostPage()) {
+        debugCommentAutomation("resolve-root-direct-page-not-ready", {
+          currentUrl: window.location.href,
+          resolved: describeElement(resolvedSurface)
+        });
       }
     }
 
@@ -2369,6 +2459,7 @@
 
   globalThis.FacebergCommentsRuntime = Object.freeze({
     isDirectPostPage,
+    isDirectPostDomReady,
     isMediaViewerPage,
     isReelExperiencePage,
     getActiveReelCommentSurface,

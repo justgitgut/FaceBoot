@@ -602,7 +602,17 @@
       return;
     }
 
-    if (isDirectPostPage() || isMediaViewerPage()) {
+    if (isDirectPostPage()) {
+      if (!contentComments.isDirectPostDomReady?.(document)) {
+        return;
+      }
+
+      expandPostBodies(getDirectPageExpansionRoot(root));
+      scheduleCommentAutomationPasses(document);
+      return;
+    }
+
+    if (isMediaViewerPage()) {
       expandPostBodies(getDirectPageExpansionRoot(root));
       scheduleCommentAutomationPasses(document);
       return;
