@@ -1,4 +1,4 @@
-(() => {
+﻿(() => {
   "use strict";
 
   const FEEDS_URL = "https://www.facebook.com/?filter=all&sk=h_chr&sorting_setting=CHRONOLOGICAL";
@@ -18,7 +18,7 @@
     enableBlockJoinPosts: true,
     enableGoDirectlyToFeeds: false
   };
-  const sharedStats = globalThis.FaceBootStats || {};
+  const sharedStats = globalThis.FacebergStats || {};
   const CLEANUP_STATS = sharedStats.CLEANUP_STATS || [];
   const ACTIVITY_STATS = sharedStats.ACTIVITY_STATS || [];
   const ALL_STATS = sharedStats.ALL_STATS || [];
@@ -48,18 +48,15 @@
   const blockFollowPostsInput = document.getElementById("enableBlockFollowPosts");
   const blockJoinPostsInput = document.getElementById("enableBlockJoinPosts");
   const goDirectlyToFeedsInput = document.getElementById("enableGoDirectlyToFeeds");
-  const timeSavedSessionValue = document.getElementById("timeSavedSessionValue");
-  const timeSavedTotalValue = document.getElementById("timeSavedTotalValue");
-  const cleanupTotalEl = document.getElementById("cleanupTotal");
-  const expansionTotalEl = document.getElementById("expansionTotal");
-  const refreshTotalEl = document.getElementById("refreshTotal");
-  const cleanupBadge = document.getElementById("cleanupBadge");
-  const expansionBadge = document.getElementById("expansionBadge");
-  const refreshBadge = document.getElementById("refreshBadge");
-  const impactSection = document.getElementById("impactSection");
+  const roiHero = document.getElementById("roiHero");
+  const roiTimeValue = document.getElementById("roiTimeValue");
+  const roiPillars = document.getElementById("roiPillars");
+  const pillarCleanup = document.getElementById("pillarCleanup");
+  const pillarExpansion = document.getElementById("pillarExpansion");
+  const pillarRefresh = document.getElementById("pillarRefresh");
+  const statsBreakdown = document.getElementById("statsBreakdown");
+  const detailList = document.getElementById("detailList");
   const emptyState = document.getElementById("emptyState");
-  const breakdownDetails = document.getElementById("breakdownDetails");
-  const breakdownBody = document.getElementById("breakdownBody");
   const supportCta = document.getElementById("supportCta");
   const supportLine = document.getElementById("supportLine");
   const resetInfo = document.getElementById("resetInfo");
@@ -72,37 +69,30 @@
   const resetStatsButton = document.getElementById("resetStatsButton");
   const status = document.getElementById("status");
   const extensionVersion = document.getElementById("extensionVersion");
-  const statRowElements = new Map();
   const IMPACT_GROUPS = [
     {
-      totalEl: cleanupTotalEl,
-      badgeEl: cleanupBadge,
       title: "Feed Cleanup",
       items: [
-        { key: "removedReels", label: "Reels" },
-        { key: "removedFollowPosts", label: "Follow suggestions" },
-        { key: "removedJoinPosts", label: "Join suggestions" },
-        { key: "removedStories", label: "Stories" },
-        { key: "removedPeopleYouMayKnow", label: "People you may know" },
-        { key: "removedSponsored", label: "Sponsored posts" }
+        { key: "removedReels", label: "Reels hidden" },
+        { key: "removedFollowPosts", label: "Follow suggestions hidden" },
+        { key: "removedJoinPosts", label: "Join suggestions hidden" },
+        { key: "removedStories", label: "Stories hidden" },
+        { key: "removedPeopleYouMayKnow", label: "People you may know hidden" },
+        { key: "removedSponsored", label: "Sponsored posts hidden" }
       ]
     },
     {
-      totalEl: expansionTotalEl,
-      badgeEl: expansionBadge,
       title: "Content Expansion",
       items: [
-        { key: "expandedPosts", label: "Posts expanded" },
-        { key: "expandedComments", label: "Comment threads expanded" },
-        { key: "commentFilterChanges", label: "Comment filters changed" }
+        { key: "expandedPosts", label: "Posts auto-expanded" },
+        { key: "expandedComments", label: "Comment threads opened" },
+        { key: "commentFilterChanges", label: "Comment filters corrected" }
       ]
     },
     {
-      totalEl: refreshTotalEl,
-      badgeEl: refreshBadge,
       title: "Refresh Control",
       items: [
-        { key: "preventedRefreshes", label: "Reloads prevented" }
+        { key: "preventedRefreshes", label: "Page reloads prevented" }
       ]
     }
   ];
@@ -125,40 +115,46 @@
     }
   }
 
-  function buildBreakdown() {
-    if (!breakdownBody) {
+  function buildDetailList(stats) {
+    if (!detailList) {
       return;
     }
 
-    breakdownBody.replaceChildren();
-    statRowElements.clear();
+    detailList.replaceChildren();
 
     IMPACT_GROUPS.forEach(({ title, items }) => {
+      const nonZeroItems = items
+        .map(({ key, label }) => ({ key, label, value: Number(stats[key] || 0) }))
+        .filter(({ value }) => value > 0)
+        .sort((a, b) => b.value - a.value);
+      if (nonZeroItems.length === 0) {
+        return;
+      }
+
       const group = document.createElement("div");
-      group.className = "fb-bk-group";
+      group.className = "fb-dl-group";
 
       const titleEl = document.createElement("div");
-      titleEl.className = "fb-bk-title";
+      titleEl.className = "fb-dl-group-title";
       titleEl.textContent = title;
       group.appendChild(titleEl);
 
-      items.forEach(({ key, label }) => {
+      nonZeroItems.forEach(({ label, value }) => {
         const row = document.createElement("div");
-        row.className = "fb-bk-row";
+        row.className = "fb-dl-row";
 
         const labelEl = document.createElement("span");
         labelEl.textContent = label;
 
         const valEl = document.createElement("span");
-        valEl.className = "fb-bk-val";
-        valEl.textContent = "0";
+        valEl.className = "fb-dl-val";
+        valEl.textContent = formatStat(value);
 
         row.append(labelEl, valEl);
         group.appendChild(row);
-        statRowElements.set(key, { valEl });
       });
 
-      breakdownBody.appendChild(group);
+      detailList.appendChild(group);
     });
   }
 
@@ -185,85 +181,64 @@
   function renderStats(stats) {
     latestStats = stats;
 
-    /* Time saved hero */
-    if (timeSavedTotalValue) {
-      timeSavedTotalValue.textContent = formatDurationLabel(getSavedSeconds(stats, { session: false }));
-    }
-    if (timeSavedSessionValue) {
-      timeSavedSessionValue.textContent = formatDurationLabel(getSavedSeconds(stats, { session: true }));
-    }
-
-    /* Impact counters + session badges */
     let grandTotal = 0;
+    const groupTotals = [];
 
-    IMPACT_GROUPS.forEach(({ totalEl, badgeEl, items }) => {
+    IMPACT_GROUPS.forEach(({ items }) => {
       let groupTotal = 0;
-      let groupSession = 0;
-
       items.forEach(({ key }) => {
         groupTotal += Number(stats[key] || 0);
-        groupSession += Number(stats[getSessionStatKey(key)] || 0);
       });
-
       grandTotal += groupTotal;
-
-      if (totalEl) {
-        totalEl.textContent = formatStat(groupTotal);
-      }
-      if (badgeEl) {
-        badgeEl.textContent = groupSession > 0 ? `+${formatStat(groupSession)} this session` : "";
-      }
+      groupTotals.push(groupTotal);
     });
 
-    /* Detail breakdown values */
-    ALL_STATS.forEach(({ key }) => {
-      const entry = statRowElements.get(key);
-      if (!entry) {
-        return;
-      }
-
-      const val = Number(stats[key] || 0);
-      entry.valEl.textContent = formatStat(val);
-      entry.valEl.classList.toggle("fb-bk-val--zero", val === 0);
-    });
-
-    /* Empty state vs content */
     const isEmpty = grandTotal === 0;
-    if (emptyState) {
-      emptyState.hidden = !isEmpty;
-    }
-    if (impactSection) {
-      impactSection.hidden = isEmpty;
-    }
-    if (breakdownDetails) {
-      breakdownDetails.hidden = isEmpty;
-    }
-    if (supportCta) {
-      supportCta.hidden = isEmpty;
-    }
-    if (supportLine && !isEmpty) {
-      supportLine.textContent = pickSupportLine(grandTotal, getSavedSeconds(stats, { session: false }));
+    const savedSeconds = getSavedSeconds(stats, { session: false });
+
+    const actBreakdown = document.getElementById("statsBreakdown");
+
+    if (emptyState) emptyState.hidden = !isEmpty;
+    if (roiHero) roiHero.hidden = isEmpty;
+    if (roiPillars) roiPillars.hidden = isEmpty;
+    if (actBreakdown) actBreakdown.hidden = isEmpty;
+    if (supportCta) supportCta.hidden = isEmpty;
+
+    if (!isEmpty) {
+      if (roiTimeValue) {
+        roiTimeValue.textContent = formatDurationLabel(savedSeconds);
+      }
+      if (pillarCleanup) pillarCleanup.textContent = formatStat(groupTotals[0]);
+      if (pillarExpansion) pillarExpansion.textContent = formatStat(groupTotals[1]);
+      if (pillarRefresh) pillarRefresh.textContent = formatStat(groupTotals[2]);
+
+      buildDetailList(stats);
+
+      if (supportLine) {
+        supportLine.textContent = pickSupportLine(grandTotal, savedSeconds);
+      }
     }
 
-    /* Reset footer */
     renderResetInfo(stats[STATS_RESET_AT_KEY]);
   }
 
   function pickSupportLine(totalActions, savedSeconds) {
-    const mins = Math.round(savedSeconds / 60);
-    if (mins >= 60) {
-      return `${formatDurationLabel(savedSeconds)} reclaimed. Your future self says thanks.`;
+    if (savedSeconds >= 3600) {
+      return `${formatDurationLabel(savedSeconds)} reclaimed. Faceberg handled the repetitive work for you.`;
+    }
+    if (savedSeconds >= 1800) {
+      return `${formatDurationLabel(savedSeconds)} saved so far. That is time you did not spend clicking through posts and comments.`;
     }
     if (totalActions >= 500) {
-      return `${formatStat(totalActions)} problems solved. Zero complaints filed.`;
+      return `${formatStat(totalActions)} small interruptions handled without manual work.`;
     }
     if (totalActions >= 100) {
-      return `That's ${formatStat(totalActions)} things you didn't have to deal with.`;
+      return `${formatStat(totalActions)} actions removed from your routine. Less clicking, less waiting, less clutter.`;
     }
-    if (totalActions >= 10) {
-      return "Already making your feed less annoying. Imagine a whole week.";
+    if (totalActions >= 25) {
+      return `These counts are already adding up. Faceberg has started removing friction from the feed.`;
     }
-    return "That's time you'll never waste again. You're welcome.";
+    return `These totals will grow as Faceberg keeps handling clutter, expansions, and reloads for you.`;
   }
 
   function formatDurationLabel(totalSeconds) {
@@ -526,7 +501,7 @@
   if (aboutIcon) {
     aboutIcon.addEventListener("click", () => {
       const isEnlarged = aboutIcon.classList.toggle("fb-about-icon--enlarged");
-      aboutIcon.src = isEnlarged ? "icons/source.png" : "icons/icon128.png";
+      aboutIcon.src = isEnlarged ? "icons/logo.png" : "icons/icon128.png";
     });
   }
 
@@ -558,7 +533,6 @@
     }
   });
 
-  buildBreakdown();
   setActiveTab("settingsPanel");
   renderExtensionVersion();
 
@@ -570,3 +544,4 @@
     .catch(() => showStatus("Could not load settings.", "error"));
   loadStats().catch(() => showStatus("Could not load activity.", "error"));
 })();
+

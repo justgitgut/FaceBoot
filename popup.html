@@ -1,9 +1,9 @@
-<!doctype html>
+﻿<!doctype html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>FaceBoot Settings</title>
+    <title>Faceberg Settings</title>
     <link rel="stylesheet" href="popup.css" />
   </head>
   <body>
@@ -11,10 +11,10 @@
     <header class="fb-header">
       <div class="fb-header-top">
         <div class="fb-brand">
-          <div class="fb-logo"><img src="icons/icon48.png" alt="FaceBoot" width="34" height="34" /></div>
+          <div class="fb-logo"><img src="icons/icon48.png" alt="Faceberg" width="34" height="34" /></div>
           <div class="fb-header-text">
             <div class="fb-title-row">
-              <h1>FaceBoot</h1>
+              <h1>Faceberg</h1>
               <span class="fb-version" id="extensionVersion" aria-label="Extension version">Version</span>
             </div>
             <p>Clean Feed. Expand Everything.</p>
@@ -23,7 +23,7 @@
         <button id="applyButton" type="button" class="fb-btn fb-btn--header">Apply Changes</button>
       </div>
 
-      <nav class="fb-tabs" aria-label="FaceBoot sections">
+      <nav class="fb-tabs" aria-label="Faceberg sections">
         <button type="button" class="fb-tab is-active" data-tab-target="settingsPanel" aria-controls="settingsPanel" aria-selected="true">Settings</button>
         <button type="button" class="fb-tab" data-tab-target="activityPanel" aria-controls="activityPanel" aria-selected="false">Activity</button>
         <button type="button" class="fb-tab" data-tab-target="aboutPanel" aria-controls="aboutPanel" aria-selected="false">About</button>
@@ -113,51 +113,47 @@
       </section>
 
       <section class="fb-panel" id="activityPanel" data-tab-panel hidden aria-label="Activity tab">
-        <section class="fb-card fb-card--activity" aria-label="FaceBoot activity">
+        <section class="fb-card fb-card--activity" aria-label="Faceberg activity">
 
-          <!-- Time-saved hero -->
-          <div class="fb-hero">
-            <div class="fb-hero-caption">
-              <img class="fb-hero-icon" src="icons/book.gif" alt="" aria-hidden="true" />
-              <span>FaceBoot saved you</span>
+          <!-- Empty state -->
+          <p class="fb-empty" id="emptyState">Use Facebook normally and this summary will fill in as Faceberg does its work.</p>
+
+          <!-- Hero: time saved -->
+          <div class="fb-act-hero" id="roiHero" hidden>
+            <p class="fb-act-hero-label">Faceberg has saved you</p>
+            <div class="fb-act-hero-main">
+              <img class="fb-act-hero-icon" src="icons/book.gif" alt="" aria-hidden="true" />
+              <div class="fb-act-hero-time" id="roiTimeValue">0s</div>
             </div>
-            <strong class="fb-hero-value" id="timeSavedTotalValue">0s</strong>
-            <span class="fb-hero-sub"><span id="timeSavedSessionValue">0s</span> this session</span>
+            <p class="fb-act-hero-sub">Across feed cleanup, content expansion, and reload prevention.</p>
           </div>
 
-          <!-- Impact counters -->
-          <div class="fb-impacts" id="impactSection">
-            <div class="fb-impact">
-              <span class="fb-impact-icon" aria-hidden="true">🧹</span>
-              <span class="fb-impact-body"><strong class="fb-impact-num" id="cleanupTotal">0</strong> distractions removed from your feed</span>
-              <span class="fb-impact-badge" id="cleanupBadge"></span>
+          <!-- Three impact rows -->
+          <div class="fb-act-rows" id="roiPillars" hidden>
+            <div class="fb-act-row">
+              <span class="fb-act-row-num" id="pillarCleanup">0</span>
+              <span class="fb-act-row-label">feed distractions removed</span>
             </div>
-            <div class="fb-impact">
-              <span class="fb-impact-icon" aria-hidden="true">📖</span>
-              <span class="fb-impact-body"><strong class="fb-impact-num" id="expansionTotal">0</strong> posts &amp; comments auto&#8209;expanded</span>
-              <span class="fb-impact-badge" id="expansionBadge"></span>
+            <div class="fb-act-row">
+              <span class="fb-act-row-num" id="pillarExpansion">0</span>
+              <span class="fb-act-row-label">posts and comments expanded</span>
             </div>
-            <div class="fb-impact">
-              <span class="fb-impact-icon" aria-hidden="true">🛡️</span>
-              <span class="fb-impact-body"><strong class="fb-impact-num" id="refreshTotal">0</strong> unwanted page reloads prevented</span>
-              <span class="fb-impact-badge" id="refreshBadge"></span>
+            <div class="fb-act-row">
+              <span class="fb-act-row-num" id="pillarRefresh">0</span>
+              <span class="fb-act-row-label">page reloads prevented</span>
             </div>
           </div>
 
-          <!-- Empty state (shown when all stats are 0) -->
-          <p class="fb-empty" id="emptyState" hidden>Browse Facebook and FaceBoot will start tracking what it does for you here.</p>
-
-          <!-- Collapsible per-item breakdown -->
-          <details class="fb-breakdown" id="breakdownDetails">
-            <summary class="fb-breakdown-toggle">Show breakdown</summary>
-            <div class="fb-breakdown-body" id="breakdownBody"></div>
+          <!-- Collapsible full breakdown -->
+          <details class="fb-act-breakdown" id="statsBreakdown" hidden>
+            <summary class="fb-act-breakdown-toggle">Show full breakdown</summary>
+            <div class="fb-detail-list" id="detailList"></div>
           </details>
 
           <!-- Support CTA -->
-          <div class="fb-support" id="supportCta">
-            <p class="fb-support-line" id="supportLine">That's time you'll never waste again. You're welcome.</p>
+          <div class="fb-act-cta" id="supportCta" hidden>
+            <p class="fb-act-cta-line" id="supportLine"></p>
             <button id="donateButton" type="button" class="fb-bmc-btn"><span class="fb-bmc-icon" aria-hidden="true">☕</span><span>Buy me a coffee</span></button>
-            <p class="fb-support-note">Mass-produced Reels won't scroll themselves.<br>Oh wait, that's the whole point.</p>
           </div>
 
           <!-- Footer -->
@@ -171,16 +167,9 @@
 
       <section class="fb-panel" id="aboutPanel" data-tab-panel hidden aria-label="About tab">
         <section class="fb-card fb-card--about">
-          <div class="fb-about-header">
-            <img class="fb-about-icon" id="aboutIcon" src="icons/icon128.png" alt="FaceBoot icon" width="72" height="72" />
-            <div class="fb-about-header-text">
-              <h2 class="fb-about-title">FaceBoot</h2>
-              <span class="fb-about-ver" id="aboutVersion"></span>
-            </div>
-          </div>
-
           <div class="fb-about-body">
-            <p class="fb-about-copy">FaceBoot is a lightweight browser extension that makes Facebook less noisy and more usable. It cleans up your feed, expands truncated content for you, and prevents the page from reloading behind your back.</p>
+            <img class="fb-about-icon" id="aboutIcon" src="icons/icon128.png" alt="Faceberg icon" width="96" height="96" />
+            <p class="fb-about-copy">Faceberg is a lightweight browser extension that makes Facebook less noisy and more usable. It cleans up your feed, expands truncated content for you, and prevents the page from reloading behind your back.</p>
 
             <div class="fb-about-features">
               <h3 class="fb-about-subtitle">What it does</h3>
@@ -192,10 +181,10 @@
             </div>
 
             <div class="fb-about-note">
-              <strong>🌐 Language:</strong> FaceBoot currently supports English-language Facebook only. If you'd like support for another language or additional functionality, feel free to request it through the extension's store page.
+              <strong>🌐 Language:</strong> Faceberg currently supports English-language Facebook only. If you'd like support for another language or additional functionality, feel free to request it through the extension's store page.
             </div>
 
-            <p class="fb-about-copy fb-about-copy--muted">Use <strong>Settings</strong> to choose what gets cleaned up. Check <strong>Activity</strong> to see everything FaceBoot has done for you.</p>
+            <p class="fb-about-copy fb-about-copy--muted">Use <strong>Settings</strong> to choose what gets cleaned up. Check <strong>Activity</strong> to see everything Faceberg has done for you.</p>
           </div>
         </section>
       </section>
