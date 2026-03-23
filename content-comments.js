@@ -42,6 +42,12 @@
     }
   }
 
+  function shouldSuppressAutomation(deps) {
+    return typeof deps?.shouldSuppressAutomation === "function"
+      ? deps.shouldSuppressAutomation()
+      : false;
+  }
+
   function watchSurfaceMutations(surface, callback, options = {}) {
     if (!(surface instanceof Element) || !document.contains(surface)) {
       return null;
@@ -1291,6 +1297,10 @@
     state.retryTimerId = window.setTimeout(() => {
       state.retryTimerId = 0;
 
+      if (shouldSuppressAutomation(deps)) {
+        return;
+      }
+
       if (!surface.isConnected || !isVisible(surface)) {
         return;
       }
@@ -2090,6 +2100,13 @@
   }
 
   function runCommentAutomation(root = document, deps = {}) {
+    if (shouldSuppressAutomation(deps)) {
+      debugCommentAutomation("run-automation-skip", {
+        reason: "suppressed"
+      });
+      return false;
+    }
+
     const target = getActiveCommentAutomationRoot(root);
     if (!target) {
       debugCommentAutomation("run-automation-skip", {
@@ -2144,6 +2161,10 @@
   }
 
   function scheduleCommentAutomationPasses(root = document, deps = {}) {
+    if (shouldSuppressAutomation(deps)) {
+      return;
+    }
+
     runCommentAutomation(root, deps);
 
     const target = getActiveCommentAutomationRoot(root);
@@ -2152,6 +2173,10 @@
     }
 
     const watcher = watchSurfaceMutations(target, () => {
+      if (shouldSuppressAutomation(deps)) {
+        return;
+      }
+
       runCommentAutomation(document, deps);
     }, { maxDuration: 6000 });
 
@@ -2162,6 +2187,10 @@
   }
 
   function clickCommentExpanders(root = document, deps = {}) {
+    if (shouldSuppressAutomation(deps)) {
+      return "none";
+    }
+
     const settings = getSettings(deps);
     if (!settings?.enableCommentExpansion) {
       return "none";
@@ -2545,6 +2574,10 @@
 
     if (!activeExpansionWatchers.has(activeDialog)) {
       const watcher = watchSurfaceMutations(activeDialog, () => {
+        if (shouldSuppressAutomation(deps)) {
+          return;
+        }
+
         runCommentAutomation(document, deps);
       }, { maxDuration: expansionCooldown + 2000 });
 

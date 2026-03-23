@@ -80,7 +80,8 @@
   }
   const runtimeDeps = {
     getSettings: () => settings,
-    queueStatIncrement
+    queueStatIncrement,
+    shouldSuppressAutomation: () => shouldSuppressAutomation(document)
   };
 
   function isDirectPostPage() {
