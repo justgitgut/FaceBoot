@@ -18,7 +18,9 @@
     isPostActionControl,
     hasPostActionControl,
     isVisible,
-    pressElement
+    pressElement,
+    getRuntimeSettings,
+    queueRuntimeStatIncrement
   } = contentUtils;
   const {
     describeElement,
@@ -30,22 +32,25 @@
   const activeExpansionWatchers = new WeakMap();
   const commentFilterAttemptState = new WeakMap();
 
-  function getSettings(deps) {
-    return typeof deps?.getSettings === "function"
-      ? deps.getSettings()
-      : deps?.settings;
-  }
-
-  function queueStatIncrement(deps, statKey, delta = 1) {
-    if (typeof deps?.queueStatIncrement === "function") {
-      deps.queueStatIncrement(statKey, delta);
+  function getPrimaryControlText(control) {
+    if (!(control instanceof Element)) {
+      return "";
     }
+
+    const labelCandidates = [control, ...control.querySelectorAll("span, div")]
+      .filter((candidate) => candidate instanceof Element)
+      .filter((candidate) => isVisible(candidate))
+      .map((candidate) => normalizeText(candidate.textContent || candidate.getAttribute("aria-label")))
+      .filter((text) => text && text.length <= 80)
+      .sort((left, right) => left.length - right.length);
+
+    return labelCandidates[0] || normalizeText(control.textContent || control.getAttribute("aria-label"));
   }
 
-  function shouldSuppressAutomation(deps) {
-    return typeof deps?.shouldSuppressAutomation === "function"
-      ? deps.shouldSuppressAutomation()
-      : false;
+  function isReplySummaryText(text) {
+    return /^view all \d+ replies$/i.test(text) ||
+      /^(?:view|see|show)\s+(?:all\s+)?\d*\s*(?:more\s+|previous\s+)?(?:repl(?:y|ies)|responses?)$/i.test(text) ||
+      /^\d+\s+(?:more\s+)?(?:repl(?:y|ies)|responses?)$/i.test(text);
   }
 
   function watchSurfaceMutations(surface, callback, options = {}) {
@@ -130,7 +135,7 @@
       return null;
     }
 
-    if (activeElement.closest('[contenteditable="true"], textarea, input, [role="textbox"]')) {
+      if (activeElement.closest('[contenteditable="true"][role="textbox"], textarea')) {
       return activeElement;
     }
 
@@ -143,18 +148,23 @@
       return false;
     }
 
-    const composer = activeElement.closest(
-      '[contenteditable="true"][role="textbox"], [contenteditable="true"][data-lexical-editor="true"], textarea, [role="textbox"]'
-    );
+    const composer = activeElement.closest('[contenteditable="true"][role="textbox"], textarea');
     if (!(composer instanceof Element)) {
       return false;
     }
 
-    if (!(surface instanceof Element)) {
-      return true;
-    }
+    const rawComposerText = normalizeText(composer.textContent || "");
+    const rawActiveText = normalizeText(activeElement?.textContent || "");
+    const controlValue =
+      "value" in composer && typeof composer.value === "string"
+        ? normalizeText(composer.value)
+        : "";
+    const hasUserInput =
+      controlValue.length > 0 ||
+      rawComposerText.length > 0 ||
+      rawActiveText.length > 0;
 
-    return surface.contains(composer);
+    return (!(surface instanceof Element) || surface.contains(composer)) && hasUserInput;
   }
 
   function isMediaViewerPage() {
@@ -513,99 +523,11 @@
     return /notifications|messenger|search|create post/i.test(dialogLabel);
   }
 
-  function elementHasNotificationLabel(element) {
-    if (!(element instanceof Element)) {
-      return false;
-    }
-
-    const ownLabel = normalizeText(element.getAttribute("aria-label"));
-    if (/\bnotifications?\b/.test(ownLabel)) {
-      return true;
-    }
-
-    const ownText = normalizeText(element.textContent || "");
-    if (ownText && ownText.length <= 80 && /\bnotifications?\b/.test(ownText)) {
-      return true;
-    }
-
-    return false;
-  }
-
-  function isNotificationSurface(surface) {
-    if (!(surface instanceof Element) || !isVisible(surface)) {
-      return false;
-    }
-
-    if (elementHasNotificationLabel(surface)) {
-      return true;
-    }
-
-    const headingLikeElements = surface.querySelectorAll(
-      '[role="heading"], h1, h2, h3, h4, [aria-label], [data-pagelet]'
-    );
-
-    for (const candidate of headingLikeElements) {
-      if (!(candidate instanceof Element) || !isVisible(candidate)) {
-        continue;
-      }
-
-      const candidateLabel = normalizeText(candidate.getAttribute("aria-label"));
-      const candidateText = normalizeText(candidate.textContent || "");
-      if (/\bnotifications?\b/.test(candidateLabel) || /\bnotifications?\b/.test(candidateText)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-  function getVisibleNotificationSurface(root = document) {
-    const scopedElement = root instanceof Element ? root : null;
-    const surfaceSelectors = [
-      '[role="dialog"]',
-      '[role="menu"]',
-      '[role="listbox"]',
-      '[aria-modal="true"]',
-      '[data-pagelet]',
-      '[role="complementary"]'
-    ].join(', ');
-
-    if (scopedElement) {
-      const scopedCandidate = scopedElement.closest(surfaceSelectors);
-      if (isNotificationSurface(scopedCandidate)) {
-        return scopedCandidate;
-      }
-    }
-
-    const candidates = [...document.querySelectorAll(surfaceSelectors)].reverse();
-    return candidates.find((candidate) => isNotificationSurface(candidate)) || null;
-  }
-
-  function isNotificationInteraction(target) {
-    if (!(target instanceof Element)) {
-      return false;
-    }
-
-    if (elementHasNotificationLabel(target) || elementHasNotificationLabel(target.closest('[role="button"], [role="link"], button, a[href], [tabindex]'))) {
-      return true;
-    }
-
-    const notificationSurface = getVisibleNotificationSurface(target);
-    return !!(notificationSurface && notificationSurface.contains(target));
-  }
-
   function hasPostDialogSignals(surface) {
     if (!(surface instanceof Element) || !surface.matches('[role="dialog"]')) {
       return false;
     }
 
-    /* Only use signals that are exclusive to real post dialogs and cannot appear
-       inside a Facebook notification or messenger panel.
-       Removed: href*="/permalink/", href*="/posts/" — notification items always
-       link to these URLs, causing the notification panel to be misidentified as a
-       post dialog and triggering comment automation that opens a random post.
-       Removed: [role="list"] [role="article"] and [aria-live] [role="article"] —
-       the notification panel uses exactly this structure for its notification list. */
     return (
       hasPostActionControl(surface) ||
       !!surface.querySelector(
@@ -614,7 +536,11 @@
         '[data-ad-rendering-role="profile_name"], ' +
         '[data-ad-rendering-role="comment_button"], ' +
         'a[aria-label="hide post"], ' +
-        'a[role="link"][href*="/story.php"]'
+        'a[role="link"][href*="/permalink/"], ' +
+        'a[role="link"][href*="/posts/"], ' +
+        'a[role="link"][href*="/story.php"], ' +
+        '[role="list"] [role="article"], ' +
+        '[aria-live] [role="article"]'
       )
     );
   }
@@ -713,7 +639,8 @@
       !!control.querySelector('[data-ad-rendering-role="comment_button"]') ||
       uiMatchers.commentSummaryRegex.test(text) ||
       uiMatchers.loadMoreCommentRegex.test(text) ||
-      uiMatchers.moreCommentRegex.test(text)
+      uiMatchers.moreCommentRegex.test(text) ||
+      /^view all \d+ replies$/i.test(text)
     );
   }
 
@@ -779,6 +706,43 @@
     return label === "comment ordering" || label.startsWith("comment ordering ");
   }
 
+  function isMenuAnchoredToToggle(menu, toggle, items = []) {
+    if (!(menu instanceof Element) || !(toggle instanceof Element)) {
+      return false;
+    }
+
+    if (menu.contains(toggle) || toggle.contains(menu)) {
+      return false;
+    }
+
+    const toggleRect = toggle.getBoundingClientRect();
+    const menuRect = menu.getBoundingClientRect();
+    if (!toggleRect || !menuRect || menuRect.width <= 0 || menuRect.height <= 0) {
+      return false;
+    }
+
+    const toggleCenterX = toggleRect.left + (toggleRect.width / 2);
+    const menuCenterX = menuRect.left + (menuRect.width / 2);
+    const horizontalDistance = Math.abs(menuCenterX - toggleCenterX);
+    const verticalGap = menuRect.top - toggleRect.bottom;
+    const overlapsToggleRow = menuRect.bottom >= toggleRect.top && menuRect.top <= toggleRect.bottom;
+    const anchoredBelow = verticalGap >= -12 && verticalGap <= 240;
+    const anchoredSide = horizontalDistance <= Math.max(220, toggleRect.width * 2.5);
+
+    if (!(overlapsToggleRow || anchoredBelow) || !anchoredSide) {
+      return false;
+    }
+
+    if (menu.matches('[role="dialog"]') && !isCommentOrderingMenu(menu)) {
+      const visibleItems = items.filter((item) => item instanceof Element && isVisible(item));
+      if (visibleItems.length < 2) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
     /* The sorter toggle lives inside the active dialog and can read as Newest,
       Most relevant, or All comments. The scoring here intentionally prefers:
       1. a toggle already reading All comments,
@@ -793,6 +757,9 @@
 
     const candidates = [];
     const selector = '[role="button"][aria-haspopup="menu"], [role="link"][aria-haspopup="menu"], [tabindex][aria-haspopup="menu"]';
+      const discussionAnchor = surface.querySelector('[contenteditable="true"][role="textbox"], textarea, [role="list"], [aria-live], ul, ol');
+      const discussionRect = discussionAnchor?.getBoundingClientRect?.() || null;
+      const isFeedDialogSurface = !isDirectPostPage() && !isMediaViewerPage() && surface.matches('[role="dialog"]');
 
     surface.querySelectorAll(selector).forEach((candidate) => {
       if (!isVisible(candidate) || candidate.closest('[role="menu"], [role="toolbar"]') || isPostActionControl(candidate)) {
@@ -816,6 +783,13 @@
       }
 
       const rect = candidate.getBoundingClientRect();
+      if (isFeedDialogSurface && discussionRect && rect) {
+        const verticalDistance = Math.abs((rect.bottom || rect.top || 0) - discussionRect.top);
+        const horizontalDistance = Math.abs((rect.left || 0) - discussionRect.left);
+        score += Math.max(0, 180 - Math.min(180, verticalDistance));
+        score += Math.max(0, 80 - Math.min(80, horizontalDistance));
+      }
+
       candidates.push({
         candidate,
         score,
@@ -904,6 +878,10 @@
         if (items.length === 0) {
           return null;
         }
+
+          if (toggle instanceof Element && !isMenuAnchoredToToggle(menu, toggle, items)) {
+            return null;
+          }
 
         let score = 0;
         const itemTexts = items.map((item) => normalizeText(item.textContent || item.getAttribute("aria-label")));
@@ -1051,25 +1029,102 @@
       2. try native click first,
       3. fallback to mouse/pointer-style dispatch only.
       Do not add Enter/keyboard dispatch back into this path unless Facebook changes,
-      because it previously caused false positives and inconsistent popup flicker.
-      Do not add synchronous DOM-state checks after click() — Facebook defers React
-      re-renders asynchronously, so any aria-state check immediately after dispatch
-      always reflects the pre-click state and silently blocks the selection. Actual
-      verification is handled by the 90 ms follow-up in scheduleAllCommentsSelectionRetry. */
+      because it previously caused false positives and inconsistent popup flicker. */
     function activateMenuItem(item) {
     if (!(item instanceof Element) || !isVisible(item)) {
       return false;
     }
 
     const candidates = getMenuItemActivationCandidates(item);
-    const selectedItemBefore = getMenuItemDebugState(item);
+    for (const candidate of candidates) {
+      if (pressElement(candidate, {
+        dispatchKeyboard: false,
+        dispatchSyntheticClick: false,
+        dispatchNativeClick: true
+      })) {
+        return true;
+      }
+
+      try {
+        if (typeof candidate.click === "function") {
+          candidate.click();
+          return true;
+        }
+      } catch {
+        /* Ignore native click failures. */
+      }
+
+      if (pressElement(candidate, {
+        dispatchKeyboard: false,
+        dispatchSyntheticClick: true,
+        dispatchNativeClick: false
+      })) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function getFilterToggleActivationCandidates(toggle) {
+    if (!(toggle instanceof Element)) {
+      return [];
+    }
+
+    const labelText = normalizeText(toggle.textContent || toggle.getAttribute("aria-label"));
+    const candidates = [];
+    const seenCandidates = new Set();
+    const interactiveSelector = '[role="button"], [role="link"], button, a[href], [tabindex]';
+
+    function pushCandidate(candidate) {
+      if (!(candidate instanceof Element) || !isVisible(candidate) || seenCandidates.has(candidate)) {
+        return;
+      }
+
+      seenCandidates.add(candidate);
+      candidates.push(candidate);
+    }
+
+    pushCandidate(toggle.matches(interactiveSelector) ? toggle : null);
+    pushCandidate(toggle.querySelector(interactiveSelector));
+    pushCandidate(getElementCenterHitTarget(toggle));
+
+    if (labelText) {
+      [...toggle.querySelectorAll('span, div')].forEach((candidate) => {
+        const candidateText = normalizeText(candidate.textContent || candidate.getAttribute("aria-label"));
+        if (candidateText === labelText) {
+          pushCandidate(candidate);
+        }
+      });
+    }
+
+    pushCandidate(toggle.closest(interactiveSelector));
+    pushCandidate(toggle);
+    pushCandidate(toggle.firstElementChild);
+    return candidates;
+  }
+
+  function didFilterToggleOpen(surface, toggle) {
+    if (!(toggle instanceof Element)) {
+      return false;
+    }
+
+    const toggleText = normalizeText(toggle.textContent || toggle.getAttribute("aria-label"));
+    return (
+      toggle.getAttribute("aria-expanded") === "true" ||
+      matchesAllCommentsText(toggleText) ||
+      !!getCommentSortMenu(surface, toggle)
+    );
+  }
+
+  function activateFilterToggle(surface, toggle) {
+    if (!(toggle instanceof Element) || !isVisible(toggle)) {
+      return false;
+    }
+
+    const candidates = getFilterToggleActivationCandidates(toggle);
 
     for (const candidate of candidates) {
-      debugCommentAutomation("filter-selection-attempt", {
-        selectedItemBefore,
-        activationTarget: describeElement(candidate)
-      });
-
       try {
         if (typeof candidate.click === "function") {
           candidate.click();
@@ -1099,107 +1154,42 @@
     return false;
   }
 
-  function getFilterToggleActivationCandidates(toggle) {
-    if (!(toggle instanceof Element)) {
-      return [];
-    }
-
-    const labelText = normalizeText(toggle.textContent || toggle.getAttribute("aria-label"));
-    const candidates = [];
-    const seenCandidates = new Set();
-
-    function pushCandidate(candidate) {
-      if (!(candidate instanceof Element) || !isVisible(candidate) || seenCandidates.has(candidate)) {
-        return;
-      }
-
-      seenCandidates.add(candidate);
-      candidates.push(candidate);
-    }
-
-    pushCandidate(toggle);
-    pushCandidate(getElementCenterHitTarget(toggle));
-
-    if (labelText) {
-      [...toggle.querySelectorAll('span, div')].forEach((candidate) => {
-        const candidateText = normalizeText(candidate.textContent || candidate.getAttribute("aria-label"));
-        if (candidateText === labelText) {
-          pushCandidate(candidate);
-        }
-      });
-    }
-
-    pushCandidate(toggle.firstElementChild);
-    return candidates;
-  }
-
-  function didFilterToggleOpen(surface, toggle) {
-    if (!(toggle instanceof Element)) {
-      return false;
-    }
-
-    const toggleText = normalizeText(toggle.textContent || toggle.getAttribute("aria-label"));
-    return (
-      toggle.getAttribute("aria-expanded") === "true" ||
-      matchesAllCommentsText(toggleText) ||
-      !!getCommentSortMenu(surface, toggle)
-    );
-  }
-
-  function activateFilterToggle(surface, toggle) {
-    if (!(toggle instanceof Element) || !isVisible(toggle)) {
-      return false;
-    }
-
-    const candidates = getFilterToggleActivationCandidates(toggle);
-
-    for (const candidate of candidates) {
-      try {
-        if (typeof candidate.click === "function") {
-          candidate.click();
-          if (didFilterToggleOpen(surface, toggle)) {
-            return true;
-          }
-        }
-      } catch {
-        /* Ignore native click failures. */
-      }
-
-      if (pressElement(candidate, {
-        dispatchKeyboard: false,
-        dispatchSyntheticClick: true,
-        dispatchNativeClick: false
-      }) && didFilterToggleOpen(surface, toggle)) {
-        return true;
-      }
-
-      if (pressElement(candidate, {
-        dispatchKeyboard: false,
-        dispatchSyntheticClick: false,
-        dispatchNativeClick: true
-      }) && didFilterToggleOpen(surface, toggle)) {
-        return true;
-      }
-    }
-
-    return false;
-  }
-
-    /* This state is intentionally minimal now that the popup behavior is stable.
-      We only keep enough timing information to avoid double-opening the popup and to
-      schedule a single short follow-up pass after opening. The old retry/suspension
-      state machine was removed once the selector and click target were corrected. */
+    /* Keep timing plus one targeted watcher handle so the sorter can wait for the
+      menu to finish hydrating instead of repeatedly reopening while rows are loading. */
     function getCommentFilterState(surface) {
     let state = commentFilterAttemptState.get(surface);
+      const dialogHost = surface instanceof Element ? surface.closest('[role="dialog"]') || surface : null;
+      const toggle = surface instanceof Element ? getCommentSorterToggle(surface) : null;
+      const dialogSignature = dialogHost instanceof Element
+        ? normalizeText(dialogHost.getAttribute('aria-label') || dialogHost.textContent || '').slice(0, 160)
+        : '';
+      const toggleSignature = toggle instanceof Element
+        ? normalizeText(toggle.getAttribute('aria-label') || toggle.textContent || '').slice(0, 80)
+        : '';
+
     if (!state) {
       state = {
         lastToggleAt: 0,
         lastSelectionAt: 0,
+        selectionFailedUntil: 0,
         interactionUntil: 0,
         retryTimerId: 0,
-        menuWatcher: null
+        menuWatcher: null,
+          menuLoadingUntil: 0,
+          dialogSignature,
+          toggleSignature
       };
       commentFilterAttemptState.set(surface, state);
+      } else if (state.dialogSignature !== dialogSignature || state.toggleSignature !== toggleSignature) {
+        clearCommentFilterRetry(state);
+        clearMenuWatcher(state);
+        state.lastToggleAt = 0;
+        state.lastSelectionAt = 0;
+        state.selectionFailedUntil = 0;
+        state.interactionUntil = 0;
+        state.menuLoadingUntil = 0;
+        state.dialogSignature = dialogSignature;
+        state.toggleSignature = toggleSignature;
     }
 
     return state;
@@ -1221,11 +1211,9 @@
 
     state.menuWatcher.stop();
     state.menuWatcher = null;
+    state.menuLoadingUntil = 0;
   }
 
-  /* Returns true when the open menu is still populating — either an explicit
-     loading indicator is present or no interactive rows have appeared yet.
-     Used to avoid clicking while Facebook is fetching the menu contents. */
   function hasMenuLoadingIndicator(menu) {
     if (!(menu instanceof Element)) {
       return false;
@@ -1238,12 +1226,19 @@
     return !menu.querySelector('[role="menuitem"], [role="menuitemradio"], [role="menuitemcheckbox"], [role="option"]');
   }
 
-  /* Calls onReady once the menu has interactive rows and no loading spinner.
-     Uses a MutationObserver so it fires on the exact DOM mutation rather than
-     a polling loop. Falls back to onReady after maxWaitMs to avoid stalling. */
-  function watchForMenuReady(menu, onReady, maxWaitMs = 2000) {
-    if (!(menu instanceof Element) || !hasMenuLoadingIndicator(menu)) {
-      onReady();
+  function watchForMenuReady(menu, onReady, maxWaitMs = 2000, resolveMenu = null) {
+    function getActiveMenu() {
+      const resolvedMenu = typeof resolveMenu === "function" ? resolveMenu() : null;
+      if (resolvedMenu instanceof Element) {
+        return resolvedMenu;
+      }
+
+      return menu instanceof Element ? menu : null;
+    }
+
+    const initialMenu = getActiveMenu();
+    if (!(initialMenu instanceof Element) || !hasMenuLoadingIndicator(initialMenu)) {
+      onReady(initialMenu);
       return { stop() {} };
     }
 
@@ -1260,14 +1255,15 @@
     }
 
     function check() {
-      if (!stopped && !hasMenuLoadingIndicator(menu)) {
+      const activeMenu = getActiveMenu();
+      if (!stopped && activeMenu instanceof Element && !hasMenuLoadingIndicator(activeMenu)) {
         stop();
-        onReady();
+        onReady(activeMenu);
       }
     }
 
     const observer = new MutationObserver(check);
-    observer.observe(menu, {
+    observer.observe(document.body, {
       childList: true,
       subtree: true,
       attributes: true,
@@ -1275,36 +1271,17 @@
     });
 
     const timerId = window.setTimeout(() => {
+      const activeMenu = getActiveMenu();
       stop();
-      onReady();
+      onReady(activeMenu);
     }, maxWaitMs);
 
     return { stop };
   }
 
-    /* This is the core "choose All comments" step.
-      Important constraints from debugging:
-      - match against getMenuItemMatchText(), not full textContent
-      - only treat a row as selected when aria state says so
-      - if the popup is open, click immediately and let a short follow-up verify state
-      - avoid long cooldowns or reopen loops now that the correct row is found
-      If selection starts hitting Newest again, inspect the label extraction before
-      changing anything else. */
-    function selectAllCommentsFromOpenMenu(surface, toggle, state, toggleText, deps = {}, { respectCooldown = true } = {}) {
-    const openMenu = getCommentSortMenu(surface, toggle);
-    if (!openMenu) {
+  function selectAllCommentsFromResolvedMenu(surface, openMenu, state, toggleText, deps = {}, { respectCooldown = true } = {}) {
+    if (!(openMenu?.menu instanceof Element) || !Array.isArray(openMenu.items)) {
       return "not-open";
-    }
-
-    /* Guard against mutation-watcher-driven re-entry while the menu is still
-       loading (e.g. items present but a spinner is visible). Return "pending"
-       so the caller blocks expansion and waits for the watcher to fire. */
-    if (hasMenuLoadingIndicator(openMenu.menu)) {
-      debugCommentAutomation("filter-menu-loading", {
-        target: describeElement(surface),
-        toggleText
-      });
-      return "pending";
     }
 
     const allCommentsItem = openMenu.items.find((item) => {
@@ -1331,6 +1308,14 @@
     }
 
     const now = Date.now();
+    if (state.selectionFailedUntil > now) {
+      debugCommentAutomation("filter-selection-pending", {
+        target: describeElement(surface),
+        toggleText
+      });
+      return "pending";
+    }
+
     if (respectCooldown && now - state.lastSelectionAt < 250) {
       debugCommentAutomation("filter-selection-pending", {
         target: describeElement(surface),
@@ -1340,6 +1325,9 @@
     }
 
     if (!activateMenuItem(allCommentsItem)) {
+      state.selectionFailedUntil = now + 1200;
+      state.interactionUntil = now + 1200;
+      clearCommentFilterRetry(state);
       debugCommentAutomation("filter-selection-failed", {
         target: describeElement(surface),
         toggleText,
@@ -1350,18 +1338,48 @@
     }
 
     state.lastSelectionAt = now;
+    state.selectionFailedUntil = 0;
     state.interactionUntil = now + 500;
-     /* Keep the stat increment here, after a real menu-item activation succeeds.
-       Counting earlier would over-report failed opens, and dropping deps anywhere in
-       this call chain makes the UI switch without ever recording the filter change. */
-     queueStatIncrement(deps, "commentFilterChanges");
+    queueRuntimeStatIncrement(deps, "commentFilterChanges");
     debugCommentAutomation("filter-selection-dispatched", {
       target: describeElement(surface),
       toggleText,
       selectedItem: getMenuItemMatchText(allCommentsItem),
       selectedItemBefore: getMenuItemDebugState(allCommentsItem)
     });
+
+    if (!state.retryTimerId) {
+      scheduleAllCommentsSelectionRetry(surface, deps, 40);
+    }
     return "pending";
+  }
+
+    /* This is the core "choose All comments" step.
+      Important constraints from debugging:
+      - match against getMenuItemMatchText(), not full textContent
+      - only treat a row as selected when aria state says so
+      - if the popup is open, click immediately and let a short follow-up verify state
+      - avoid long cooldowns or reopen loops now that the correct row is found
+      If selection starts hitting Newest again, inspect the label extraction before
+      changing anything else. */
+    function selectAllCommentsFromOpenMenu(surface, toggle, state, toggleText, deps = {}, { respectCooldown = true } = {}) {
+    const openMenu = getCommentSortMenu(surface, toggle);
+    if (!openMenu) {
+      return "not-open";
+    }
+
+      const isDirectSelectionSurface = isDirectPostPage() || isMediaViewerPage();
+      const hasImmediateFilterRows = openMenu.items.some((item) => matchesFilterOptionText(getMenuItemMatchText(item)));
+
+      if (hasMenuLoadingIndicator(openMenu.menu) && !(isDirectSelectionSurface && hasImmediateFilterRows)) {
+      debugCommentAutomation("filter-menu-loading", {
+        target: describeElement(surface),
+        toggleText
+      });
+      return "pending";
+    }
+
+    return selectAllCommentsFromResolvedMenu(surface, openMenu, state, toggleText, deps, { respectCooldown });
   }
 
     /* This is intentionally not a general retry ladder anymore.
@@ -1376,15 +1394,12 @@
 
     const state = getCommentFilterState(surface);
     clearCommentFilterRetry(state);
-    clearMenuWatcher(state);
-    state.interactionUntil = Date.now() + Math.max(delay + 240, 360);
+    if (!state.menuWatcher) {
+      state.interactionUntil = Date.now() + Math.max(delay + 240, 360);
+    }
 
     state.retryTimerId = window.setTimeout(() => {
       state.retryTimerId = 0;
-
-      if (shouldSuppressAutomation(deps)) {
-        return;
-      }
 
       if (!surface.isConnected || !isVisible(surface)) {
         return;
@@ -1405,22 +1420,22 @@
         return;
       }
 
-      if (toggle.getAttribute("aria-expanded") === "true") {
-        /* Find the open menu element even if it has no rows yet (loading state).
-           getCommentSortMenu requires items, so fall back to a raw DOM query. */
-        const openMenu = getCommentSortMenu(surface, toggle);
-        const menuElement = openMenu?.menu ||
-          [...document.querySelectorAll('[role="menu"]')].find((m) => isVisible(m)) ||
-          null;
+      const openMenu = getCommentSortMenu(surface, toggle);
+      const menuElement = openMenu?.menu || null;
+      const hasImmediateFilterRows = openMenu?.items?.some((item) => matchesFilterOptionText(getMenuItemMatchText(item)));
+      const allowImmediateDirectSelection = (isDirectPostPage() || isMediaViewerPage()) && hasImmediateFilterRows;
 
-        if (menuElement && hasMenuLoadingIndicator(menuElement)) {
-          /* Menu is open but content is still loading (spinner visible, no rows yet).
-             Set up a targeted MutationObserver that fires once items appear so we
-             click exactly once at the right moment — no polling loop needed. */
+      if (menuElement || toggle.getAttribute("aria-expanded") === "true") {
+
+        if (menuElement && hasMenuLoadingIndicator(menuElement) && !allowImmediateDirectSelection) {
+          state.menuLoadingUntil = Date.now() + 2500;
           state.interactionUntil = Date.now() + 2500;
-          state.menuWatcher = watchForMenuReady(menuElement, () => {
+          clearMenuWatcher(state);
+          state.menuWatcher = watchForMenuReady(menuElement, (resolvedMenuElement) => {
             state.menuWatcher = null;
-            if (shouldSuppressAutomation(deps) || !surface.isConnected || !isVisible(surface)) {
+            state.menuLoadingUntil = 0;
+
+            if (!surface.isConnected || !isVisible(surface)) {
               return;
             }
 
@@ -1435,6 +1450,18 @@
             }
 
             state.interactionUntil = 0;
+            const readyOpenMenu = getCommentSortMenu(surface, readyToggle) || (
+              resolvedMenuElement instanceof Element
+                ? { menu: resolvedMenuElement, items: getFilterOptionItems(resolvedMenuElement, readyToggle) }
+                : openMenu
+            );
+            if (readyOpenMenu?.menu instanceof Element && !hasMenuLoadingIndicator(readyOpenMenu.menu)) {
+              selectAllCommentsFromResolvedMenu(surface, readyOpenMenu, state, readyToggleText, deps, {
+                respectCooldown: false
+              });
+              return;
+            }
+
             selectAllCommentsFromOpenMenu(surface, readyToggle, state, readyToggleText, deps, {
               respectCooldown: false
             });
@@ -1443,20 +1470,11 @@
             target: describeElement(surface),
             toggleText: currentToggleText
           });
-        } else {
-          /* The delayed retry must carry deps too, otherwise filter changes selected on
-             the second pass stop incrementing even though the sorter visibly changes. */
+        } else if (menuElement) {
           selectAllCommentsFromOpenMenu(surface, toggle, state, currentToggleText, deps, {
             respectCooldown: false
           });
         }
-      } else {
-        /* Popup closed without the toggle reading "All comments" — the click was
-           dispatched but React did not apply the selection (e.g. wrong hit-target or
-           transient race). Reset state so the next mutation-watcher pass can
-           immediately open the toggle and retry rather than waiting out interactionUntil. */
-        state.interactionUntil = 0;
-        state.lastToggleAt = 0;
       }
     }, delay);
   }
@@ -1489,6 +1507,44 @@
     const toggleText = normalizeText(toggle.textContent || toggle.getAttribute("aria-label"));
     const toggleExpanded = toggle.getAttribute("aria-expanded") === "true";
     const msSinceLastToggle = now - state.lastToggleAt;
+    const isFeedDialogSurface = !isDirectPostPage() && !isMediaViewerPage() && !!surface.closest('[role="dialog"]');
+    const openMenu = getCommentSortMenu(surface, toggle);
+    const hasLoadedOpenMenu = !!openMenu?.menu && !hasMenuLoadingIndicator(openMenu.menu);
+
+    if (state.menuWatcher && !isFeedDialogSurface) {
+      debugCommentAutomation("filter-menu-watcher-pending", {
+        target: describeElement(surface),
+        toggleText,
+        toggleExpanded,
+        msSinceLastToggle,
+        interactionUntil: state.interactionUntil,
+        retryTimerActive: !!state.retryTimerId
+      });
+      return "pending";
+    }
+
+    if (state.menuLoadingUntil > now && !isFeedDialogSurface) {
+      debugCommentAutomation("filter-menu-loading-pending", {
+        target: describeElement(surface),
+        toggleText,
+        toggleExpanded,
+        msSinceLastToggle,
+        menuLoadingUntil: state.menuLoadingUntil
+      });
+      return "pending";
+    }
+
+    if (state.menuLoadingUntil && state.menuLoadingUntil <= now) {
+      state.menuLoadingUntil = 0;
+    }
+
+    if (state.selectionFailedUntil > now) {
+      debugCommentAutomation("filter-interaction-pending", {
+        target: describeElement(surface),
+        toggleText
+      });
+      return "pending";
+    }
 
     if (matchesAllCommentsText(toggleText)) {
       clearCommentFilterRetry(state);
@@ -1499,14 +1555,18 @@
       return "already";
     }
 
+    if (isFeedDialogSurface && hasLoadedOpenMenu) {
+      state.interactionUntil = 0;
+      state.menuLoadingUntil = 0;
+      clearMenuWatcher(state);
+      return selectAllCommentsFromResolvedMenu(surface, openMenu, state, toggleText, deps, {
+        respectCooldown: false
+      });
+    }
+
     const immediateSelectionResult = selectAllCommentsFromOpenMenu(surface, toggle, state, toggleText, deps);
     if (immediateSelectionResult !== "not-open") {
       return immediateSelectionResult;
-    }
-
-    if (!toggleExpanded && msSinceLastToggle > 300 && now - state.lastSelectionAt > 250) {
-      clearCommentFilterRetry(state);
-      state.interactionUntil = 0;
     }
 
     if (toggleExpanded) {
@@ -1520,7 +1580,7 @@
       return "pending";
     }
 
-    if (state.interactionUntil > now) {
+    if (state.interactionUntil > now && !isFeedDialogSurface) {
       if (!state.retryTimerId) {
         scheduleAllCommentsSelectionRetry(surface, deps, 70);
       }
@@ -1531,7 +1591,7 @@
       return "pending";
     }
 
-    if (msSinceLastToggle < 240 || (msSinceLastToggle < 500 && state.retryTimerId)) {
+    if ((msSinceLastToggle < 240 || (msSinceLastToggle < 500 && state.retryTimerId)) && !isFeedDialogSurface) {
       debugCommentAutomation("filter-toggle-pending", {
         target: describeElement(surface),
         toggleText
@@ -1540,15 +1600,17 @@
     }
 
     if (!activateFilterToggle(surface, toggle)) {
+      state.lastToggleAt = now;
+      state.interactionUntil = now + 240;
       debugCommentAutomation("filter-toggle-failed", {
         target: describeElement(surface),
         toggleText
       });
-      return "unavailable";
+      return "pending";
     }
 
     state.lastToggleAt = now;
-    state.interactionUntil = now + 360;
+    state.interactionUntil = now + 1200;
     scheduleAllCommentsSelectionRetry(surface, deps, 90);
     debugCommentAutomation("filter-toggle-opened", {
       target: describeElement(surface),
@@ -1879,85 +1941,6 @@
     }
   }
 
-  function normalizePathname(pathname) {
-    const raw = String(pathname || "/");
-    const trimmed = raw.replace(/\/+$/, "");
-    return trimmed || "/";
-  }
-
-  function getDirectTargetIdentifiers(urlLike) {
-    let parsedUrl;
-    try {
-      parsedUrl = urlLike instanceof URL ? urlLike : new URL(String(urlLike), window.location.href);
-    } catch {
-      return [];
-    }
-
-    const identifiers = new Set();
-    const path = normalizePathname(parsedUrl.pathname);
-    const postIdMatch = path.match(/\/(?:posts|permalink|videos|reel)\/(\d+)(?:\/|$)/i);
-    if (postIdMatch?.[1]) {
-      identifiers.add(postIdMatch[1]);
-    }
-
-    const storyFbid = parsedUrl.searchParams.get("story_fbid") || parsedUrl.searchParams.get("fbid");
-    if (storyFbid) {
-      identifiers.add(String(storyFbid));
-    }
-
-    return [...identifiers];
-  }
-
-  function urlMatchesCurrentDirectTarget(urlLike) {
-    let candidateUrl;
-    let currentUrl;
-    try {
-      candidateUrl = urlLike instanceof URL ? urlLike : new URL(String(urlLike), window.location.href);
-      currentUrl = new URL(window.location.href);
-    } catch {
-      return false;
-    }
-
-    if (candidateUrl.origin !== currentUrl.origin) {
-      return false;
-    }
-
-    const currentIdentifiers = getDirectTargetIdentifiers(currentUrl);
-    const candidateIdentifiers = getDirectTargetIdentifiers(candidateUrl);
-    if (currentIdentifiers.length > 0 && candidateIdentifiers.length > 0) {
-      return currentIdentifiers.some((identifier) => candidateIdentifiers.includes(identifier));
-    }
-
-    return normalizePathname(candidateUrl.pathname) === normalizePathname(currentUrl.pathname);
-  }
-
-  function surfaceMatchesCurrentDirectTarget(surface) {
-    if (!(surface instanceof Element) || !isVisible(surface) || !isDirectPostPage()) {
-      return false;
-    }
-
-    if (surface.matches('a[href]') && urlMatchesCurrentDirectTarget(surface.getAttribute("href") || "")) {
-      return true;
-    }
-
-    return [...surface.querySelectorAll('a[href]')].some((link) => {
-      return urlMatchesCurrentDirectTarget(link.getAttribute("href") || "");
-    });
-  }
-
-  function isDirectPostDomReady(root = document) {
-    if (!isDirectPostPage()) {
-      return false;
-    }
-
-    const surface = getCommentSurface(root);
-    return !!(
-      surface instanceof Element &&
-      canAutomateCommentSurface(surface) &&
-      surfaceMatchesCurrentDirectTarget(surface)
-    );
-  }
-
   function isLikelyPostNavigationHref(href) {
     if (!href) {
       return false;
@@ -2174,7 +2157,8 @@
       }
     }
 
-    const visibleDialog = getVisiblePostDialog(document);
+    const allowDocumentDialogFallback = !(root instanceof Element) || root === document || root === document.body;
+    const visibleDialog = allowDocumentDialogFallback ? getVisiblePostDialog(document) : null;
 
     if (visibleDialog && hasAutomatableDialogSignals(visibleDialog)) {
       debugCommentAutomation("resolve-root-visible-dialog", {
@@ -2195,22 +2179,11 @@
       }
 
       const resolvedSurface = getCommentSurface(document);
-      if (
-        resolvedSurface &&
-        canAutomateCommentSurface(resolvedSurface) &&
-        (!isDirectPostPage() || surfaceMatchesCurrentDirectTarget(resolvedSurface))
-      ) {
+      if (resolvedSurface && canAutomateCommentSurface(resolvedSurface)) {
         debugCommentAutomation("resolve-root-page-surface", {
           resolved: describeElement(resolvedSurface)
         });
         return resolvedSurface;
-      }
-
-      if (isDirectPostPage()) {
-        debugCommentAutomation("resolve-root-direct-page-not-ready", {
-          currentUrl: window.location.href,
-          resolved: describeElement(resolvedSurface)
-        });
       }
     }
 
@@ -2231,13 +2204,6 @@
   }
 
   function runCommentAutomation(root = document, deps = {}) {
-    if (shouldSuppressAutomation(deps)) {
-      debugCommentAutomation("run-automation-skip", {
-        reason: "suppressed"
-      });
-      return false;
-    }
-
     const target = getActiveCommentAutomationRoot(root);
     if (!target) {
       debugCommentAutomation("run-automation-skip", {
@@ -2292,10 +2258,6 @@
   }
 
   function scheduleCommentAutomationPasses(root = document, deps = {}) {
-    if (shouldSuppressAutomation(deps)) {
-      return;
-    }
-
     runCommentAutomation(root, deps);
 
     const target = getActiveCommentAutomationRoot(root);
@@ -2304,10 +2266,6 @@
     }
 
     const watcher = watchSurfaceMutations(target, () => {
-      if (shouldSuppressAutomation(deps)) {
-        return;
-      }
-
       runCommentAutomation(document, deps);
     }, { maxDuration: 6000 });
 
@@ -2318,11 +2276,7 @@
   }
 
   function clickCommentExpanders(root = document, deps = {}) {
-    if (shouldSuppressAutomation(deps)) {
-      return "none";
-    }
-
-    const settings = getSettings(deps);
+    const settings = getRuntimeSettings(deps);
     if (!settings?.enableCommentExpansion) {
       return "none";
     }
@@ -2366,19 +2320,23 @@
         return "other";
       }
 
-      const isReplyControl = /\brepl(?:y|ies)\b|\bresponses?\b/.test(text);
+      const primaryText = getPrimaryControlText(control);
+      const effectiveText = primaryText || text;
+      const isReplyControl = /\brepl(?:y|ies)\b|\bresponses?\b/.test(effectiveText);
 
       const isLoadMoreCommentControl =
-        uiMatchers.loadMoreCommentRegex.test(text) ||
-        uiMatchers.moreCommentRegex.test(text) ||
-        /^(?:view|see|show)\s+(?:more\s+|all\s+)?(?:comments?|replies?|responses?)$/i.test(text);
+        uiMatchers.loadMoreCommentRegex.test(effectiveText) ||
+        uiMatchers.moreCommentRegex.test(effectiveText) ||
+        /^(?:view|see|show)\s+(?:more\s+)?(?:comments?|replies?|responses?)$/i.test(effectiveText);
       if (isLoadMoreCommentControl) {
         return isReplyControl ? "replyLoadMore" : "loadMore";
       }
 
       const isCommentSummaryControl =
-        uiMatchers.commentSummaryRegex.test(text) ||
-        /^(?:show|view|see)\s+(?:comments?|replies?|responses?)$/i.test(text);
+        uiMatchers.commentSummaryRegex.test(effectiveText) ||
+        /^(?:show|view|see)\s+(?:comments?|replies?|responses?)$/i.test(effectiveText) ||
+        /^(?:show|view|see)\s+all\s+\d+\s+(?:comments?|replies?|responses?)$/i.test(effectiveText) ||
+        isReplySummaryText(effectiveText);
       if (isCommentSummaryControl) {
         return isReplyControl ? "replySummary" : "summary";
       }
@@ -2423,19 +2381,6 @@
       });
 
       return commentArticles.length >= 2 || !!host.querySelector('[role="list"] [role="article"], [aria-live] [role="article"]');
-    }
-
-    function hasInlineCommentUi(host) {
-      if (!(host instanceof Element)) {
-        return false;
-      }
-
-      return (
-        hasRenderedCommentThread(host) ||
-        hasVisibleCommentComposer(host) ||
-        !!getCommentSorterToggle(host) ||
-        !!host.querySelector('[role="list"], [aria-live], ul, ol')
-      );
     }
 
     function hasCommentContext(control) {
@@ -2490,9 +2435,12 @@
           const rightText = normalizeText(right.textContent || right.getAttribute("aria-label"));
           return leftText.length - rightText.length;
         });
+      const controlText = normalizeText(control.textContent || control.getAttribute("aria-label"));
+      const primaryControlText = getPrimaryControlText(control);
+      const isExactReplySummary = isReplySummaryText(primaryControlText || controlText);
 
       pushTarget(control.closest('[role="button"], [role="link"], [tabindex]'));
-      if (!isDialogSurface) {
+      if (!isDialogSurface || isExactReplySummary) {
         pushTarget(labelTargets[0]);
       }
       pushTarget(control);
@@ -2523,6 +2471,45 @@
       return false;
     }
 
+    function getExactReplySummaryFallbackControls(surface) {
+      if (!(surface instanceof Element)) {
+        return [];
+      }
+
+      const seen = new Set();
+      const matches = [];
+      const textCandidates = [surface, ...surface.querySelectorAll('span, div')];
+
+      for (const candidate of textCandidates) {
+        if (!(candidate instanceof Element) || !isVisible(candidate)) {
+          continue;
+        }
+
+        const text = getPrimaryControlText(candidate) || normalizeText(candidate.textContent || candidate.getAttribute('aria-label'));
+        if (!isReplySummaryText(text)) {
+          continue;
+        }
+
+        if (!candidate.closest('[role="list"], [aria-live], ul, ol')) {
+          continue;
+        }
+
+        const control = candidate.closest('[role="button"], [role="link"], [tabindex], button, a[href]');
+        if (!(control instanceof Element) || !isVisible(control) || seen.has(control)) {
+          continue;
+        }
+
+        const navigationHref = getControlNavigationHref(control);
+        if (navigationHref && isLikelyPostNavigationHref(navigationHref)) {
+          continue;
+        }
+        seen.add(control);
+        matches.push(control);
+      }
+
+      return matches;
+    }
+
     function isLikelyCommentExpander(control) {
       if (!hasCommentContext(control)) {
         return false;
@@ -2542,21 +2529,19 @@
       }
 
       const text = normalizeText(control.textContent || control.getAttribute("aria-label"));
+      const primaryText = getPrimaryControlText(control);
+      const effectiveText = primaryText || text;
       if (!text || text.length > 140) {
         return false;
+      }
+
+      if (isReplySummaryText(effectiveText)) {
+        return !control.closest('[role="toolbar"], [role="menu"]');
       }
 
       const controlKind = getCommentExpanderKind(control);
       const isCommentSummaryControl = controlKind === "summary" || controlKind === "replySummary";
       const isLoadMoreCommentControl = controlKind === "loadMore" || controlKind === "replyLoadMore";
-
-      if (
-        isDialogSurface &&
-        !hasInlineCommentUi(activeDialog) &&
-        isPrimaryCommentOpener(control)
-      ) {
-        return false;
-      }
 
       if (
         onDirectPostPage &&
@@ -2594,15 +2579,14 @@
       return true;
     }
 
-    /* Do not auto-click the generic primary comment opener on direct post pages.
-       Even when the resolved surface matches the current target URL, Facebook can
-       still route that opener through navigation-style handlers that reopen a post,
-       stack dialogs, or land on the parent group feed instead of expanding inline
-       comments. Only act on comment UI that is already rendered inline. */
     const directPostPrimaryOpener = null;
+
+    const exactReplySummaryFallbackControls = getExactReplySummaryFallbackControls(activeDialog)
+      .filter((control) => !controls.includes(control));
 
     const prioritizedControls = [
       ...controls.filter((control) => getCommentExpanderKind(control) === "replyLoadMore"),
+      ...exactReplySummaryFallbackControls,
       ...controls.filter((control) => getCommentExpanderKind(control) === "loadMore"),
       ...controls.filter((control) => getCommentExpanderKind(control) === "replySummary"),
       ...controls.filter((control) => getCommentExpanderKind(control) === "summary"),
@@ -2689,7 +2673,7 @@
         controlText,
         controlKind
       });
-      queueStatIncrement(deps, "expandedComments");
+      queueRuntimeStatIncrement(deps, "expandedComments");
       expanded = true;
       break;
     }
@@ -2704,12 +2688,20 @@
     }
 
     if (!activeExpansionWatchers.has(activeDialog)) {
+      let followUpTimerId = null;
       const watcher = watchSurfaceMutations(activeDialog, () => {
-        if (shouldSuppressAutomation(deps)) {
-          return;
+        if (activeDialog.isConnected && isVisible(activeDialog)) {
+          runCommentAutomation(activeDialog, deps);
         }
 
-        runCommentAutomation(document, deps);
+        if (!followUpTimerId) {
+          followUpTimerId = window.setTimeout(() => {
+            followUpTimerId = null;
+            if (activeDialog.isConnected && isVisible(activeDialog)) {
+              runCommentAutomation(activeDialog, deps);
+            }
+          }, 750);
+        }
       }, { maxDuration: expansionCooldown + 2000 });
 
       if (watcher) {
@@ -2724,11 +2716,8 @@
 
   globalThis.FacebergCommentsRuntime = Object.freeze({
     isDirectPostPage,
-    isDirectPostDomReady,
     isMediaViewerPage,
     isReelExperiencePage,
-    getVisibleNotificationSurface,
-    isNotificationInteraction,
     getActiveReelCommentSurface,
     getBlockingMediaViewerOverlay,
     getVisiblePostDialog,

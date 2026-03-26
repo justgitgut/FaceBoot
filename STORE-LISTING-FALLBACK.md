@@ -16,28 +16,33 @@ English
 
 ## Short Description
 
-Hides selected Facebook feed modules and expands visible truncated content.
+Hides selected Facebook feed modules, expands visible truncated content, and applies a preferred sort on root group feeds.
 
 ## Detailed Description
 
 Faceberg modifies the Facebook web interface.
 
-It hides selected feed modules and can expand visible truncated posts and comments.
+It hides selected feed modules and can expand visible truncated posts and visible comment threads.
+
+On supported comment surfaces, it can switch the comment view to All comments before expanding visible threads.
+
+On root group feed pages, it can apply the selected default group sort from the popup.
 
 It also includes an optional anti-refresh setting that reduces forced reload behavior when returning to a Facebook tab.
 
-Settings are stored locally in the browser.
+Settings and activity counters are stored locally in the browser.
 
 ## Single Purpose Statement
 
-Faceberg customizes the Facebook web interface by hiding selected feed modules and expanding visible truncated content, with an optional anti-refresh setting.
+Faceberg customizes the Facebook web interface by hiding selected feed modules, expanding visible truncated content, and applying the selected root-group sort, with an optional anti-refresh setting.
 
 ## Screenshot Captions
 
 1. Extension settings.
 2. Feed cleanup example.
 3. Content expansion example.
-4. Activity counters.
+4. Root group sort preference example.
+5. Activity counters and popup tools.
 
 ## Support URL
 

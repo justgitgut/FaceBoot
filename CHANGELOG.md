@@ -1,5 +1,24 @@
 # Changelog
 
+## 2026-03-26 - v1.2.1
+
+### Fixed
+
+- Stabilized comment-filter selection across feed dialogs, direct post pages, and supported media surfaces by anchoring sorter-popup resolution to the active toggle and re-resolving popup nodes during Facebook hydration.
+- Prevented spinner-loaded sorter menus on direct post and media surfaces from flickering while Faceberg waits to select `All comments`.
+- Improved feed-dialog handling so an already-open loaded sorter popup selects `All comments` immediately instead of waiting through the delayed loading path.
+- Expanded reply-summary detection so exact `View all N replies` controls are treated as valid reply expanders.
+- Replaced root-group URL rewriting with an in-page group-feed sorter flow that selects `New posts` on direct loads and SPA navigation.
+
+### Added
+
+- Added `Copy Debug Information` to the popup Activity tab so troubleshooting data can be copied to the clipboard in one action.
+- Added a popup setting to choose the default sort Faceberg applies on root group feed pages.
+
+### Documentation
+
+- Updated architecture, automation notes, regression checklist, and README coverage for the stabilized comment sorter flow, reply-summary fallback handling, debug export action, and configurable in-page root-group sort selection.
+
 ## 2026-03-23 - v1.1.0
 
 ### Release Summary
@@ -31,7 +50,7 @@
 
 - Documented and hardened the notification-navigation failure mode where Facebook can rewrite the URL before replacing the old feed DOM.
 - Restricted direct-post automation so it waits for DOM evidence matching the current target post instead of acting on stale feed surfaces.
-- Added notification-aware suppression so feed cleanup, post expansion, comment automation, delayed retries, and mutation watchers stand down while the notifications surface is active and while notification-driven navigation is settling.
+- Preserved notification safety by keeping dialog and surface resolution narrow instead of relying on a dedicated notification-suppression layer.
 - Removed navigation-prone generic primary comment opener automation from direct post handling to avoid wrong-post opens, stacked dialogs, and parent-group-feed misroutes.
 
 ### Fixed — Comment Filtering

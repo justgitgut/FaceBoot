@@ -70,6 +70,19 @@
                   <span class="fb-toggle-label">Open on All Feed</span>
                 </label>
               </div>
+
+              <div class="fb-setting-block">
+                <h3 class="fb-group-title">Group Feed Sort</h3>
+                <p class="fb-group-copy">Choose which sort Faceberg should apply on root group feed pages.</p>
+                <label class="fb-select-field" for="groupFeedDefaultSort">
+                  <span class="fb-select-label">Default group sort</span>
+                  <select id="groupFeedDefaultSort" class="fb-select-input">
+                    <option value="recent activity">Recent activity</option>
+                    <option value="new posts">New posts</option>
+                    <option value="most relevant">Most relevant</option>
+                  </select>
+                </label>
+              </div>
             </div>
 
             <div class="fb-settings-col fb-settings-col--right">
@@ -159,7 +172,10 @@
           <!-- Footer -->
           <div class="fb-activity-footer" id="resetFooter">
             <span id="resetInfo">Tracking since now</span>
-            <button id="resetStatsButton" type="button" class="fb-link-btn">Reset</button>
+            <div class="fb-activity-actions">
+              <button id="copyDebugButton" type="button" class="fb-link-btn">Copy Debug Information</button>
+              <button id="resetStatsButton" type="button" class="fb-link-btn">Reset</button>
+            </div>
           </div>
 
         </section>

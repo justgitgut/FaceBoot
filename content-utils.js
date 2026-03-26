@@ -191,6 +191,18 @@
     };
     const mouseOptions = {
       bubbles: true,
+
+      function getRuntimeSettings(deps) {
+        return typeof deps?.getSettings === "function"
+          ? deps.getSettings()
+          : deps?.settings;
+      }
+
+      function queueRuntimeStatIncrement(deps, statKey, delta = 1) {
+        if (typeof deps?.queueStatIncrement === "function") {
+          deps.queueStatIncrement(statKey, delta);
+        }
+      }
       cancelable: true,
       composed: true,
       clientX,
@@ -260,6 +272,8 @@
     isPostActionControl,
     hasPostActionControl,
     isVisible,
-    pressElement
+    pressElement,
+    getRuntimeSettings,
+    queueRuntimeStatIncrement
   });
 })();

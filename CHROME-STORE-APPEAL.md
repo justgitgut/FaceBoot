@@ -19,7 +19,7 @@ What I changed before resubmission:
 - Confirmed the extension is functional and not a launcher for another app, extension, or webpage.
 
 Single purpose and behavior summary:
-Faceberg customizes the Facebook interface by hiding selected feed modules, expanding visible truncated content, and optionally reducing tab-return reload behavior.
+Faceberg customizes the Facebook interface by hiding selected feed modules, expanding visible truncated content, switching supported comment surfaces to All comments before expanding visible threads, and optionally reducing tab-return reload behavior.
 
 I respectfully request a manual re-review of this submission.
 

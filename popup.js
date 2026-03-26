@@ -16,7 +16,8 @@
     enableBlockPeopleYouMayKnow: true,
     enableBlockFollowPosts: true,
     enableBlockJoinPosts: true,
-    enableGoDirectlyToFeeds: false
+    enableGoDirectlyToFeeds: false,
+    groupFeedDefaultSort: "new posts"
   };
   const sharedStats = globalThis.FacebergStats || {};
   const CLEANUP_STATS = sharedStats.CLEANUP_STATS || [];
@@ -48,6 +49,7 @@
   const blockFollowPostsInput = document.getElementById("enableBlockFollowPosts");
   const blockJoinPostsInput = document.getElementById("enableBlockJoinPosts");
   const goDirectlyToFeedsInput = document.getElementById("enableGoDirectlyToFeeds");
+  const groupFeedDefaultSortInput = document.getElementById("groupFeedDefaultSort");
   const roiHero = document.getElementById("roiHero");
   const roiTimeValue = document.getElementById("roiTimeValue");
   const roiPillars = document.getElementById("roiPillars");
@@ -67,6 +69,7 @@
   const applyButton = document.getElementById("applyButton");
   const donateButton = document.getElementById("donateButton");
   const resetStatsButton = document.getElementById("resetStatsButton");
+  const copyDebugButton = document.getElementById("copyDebugButton");
   const status = document.getElementById("status");
   const extensionVersion = document.getElementById("extensionVersion");
   const IMPACT_GROUPS = [
@@ -315,6 +318,120 @@
     }
   }
 
+  async function getActiveFacebookTabInfo() {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab) {
+      return {
+        url: "",
+        title: "",
+        id: null,
+        isFacebook: false
+      };
+    }
+
+    const url = typeof activeTab.url === "string" ? activeTab.url : "";
+    return {
+      url,
+      title: typeof activeTab.title === "string" ? activeTab.title : "",
+      id: typeof activeTab.id === "number" ? activeTab.id : null,
+      isFacebook: /https?:\/\/(www|web)\.facebook\.com\//i.test(url)
+    };
+  }
+
+  async function getActiveTabPageDebug(activeTab) {
+    if (!activeTab?.isFacebook || typeof activeTab.id !== "number") {
+      return {
+        summary: null,
+        logs: [],
+        summaryAttr: null,
+        error: activeTab?.id == null ? "No active tab." : "Active tab is not a supported Facebook page."
+      };
+    }
+
+    try {
+      const [executionResult] = await chrome.scripting.executeScript({
+        target: { tabId: activeTab.id },
+        func: () => {
+          const summaryAttr = document.documentElement?.getAttribute("data-faceberg-debug-summary") || null;
+          const summary = window.__FACEBERG_DEBUG_SUMMARY || (() => {
+            if (!summaryAttr) {
+              return null;
+            }
+
+            try {
+              return JSON.parse(summaryAttr);
+            } catch {
+              return null;
+            }
+          })();
+          const logs = Array.isArray(window.__FACEBERG_DEBUG_LOGS)
+            ? window.__FACEBERG_DEBUG_LOGS.slice(-80)
+            : [];
+
+          return {
+            summary,
+            logs,
+            summaryAttr,
+            hasDebugSummaryGlobal: !!window.__FACEBERG_DEBUG_SUMMARY,
+            hasDebugLogsGlobal: Array.isArray(window.__FACEBERG_DEBUG_LOGS)
+          };
+        }
+      });
+
+      return {
+        ...(executionResult?.result || {
+          summary: null,
+          logs: [],
+          summaryAttr: null,
+          hasDebugSummaryGlobal: false,
+          hasDebugLogsGlobal: false
+        }),
+        error: null
+      };
+    } catch (error) {
+      return {
+        summary: null,
+        logs: [],
+        summaryAttr: null,
+        error: String(error?.message || error || "Unknown page debug capture failure.")
+      };
+    }
+  }
+
+  function buildDebugPayload({ settings, stats, activeTab, pageDebug }) {
+    const manifest = chrome.runtime?.getManifest?.() || {};
+    const payload = {
+      extension: {
+        name: manifest.name || "Faceberg",
+        version: manifest.version || ""
+      },
+      generatedAt: new Date().toISOString(),
+      activeTab,
+      settings,
+      stats,
+      pageDebug,
+      pageDebugInstructions: {
+        summary: "window.__FACEBERG_DEBUG_SUMMARY || JSON.parse(document.documentElement.getAttribute('data-faceberg-debug-summary') || 'null')",
+        logs: "window.__FACEBERG_DEBUG_LOGS ? window.__FACEBERG_DEBUG_LOGS.slice(-80) : 'no __FACEBERG_DEBUG_LOGS'",
+        summaryAttr: "document.documentElement.getAttribute('data-faceberg-debug-summary')"
+      }
+    };
+
+    return JSON.stringify(payload, null, 2);
+  }
+
+  async function copyDebugInformation() {
+    const [settings, stats, activeTab] = await Promise.all([
+      readSettings(),
+      chrome.storage.local.get(STATS_STORAGE_DEFAULTS),
+      getActiveFacebookTabInfo()
+    ]);
+
+    const pageDebug = await getActiveTabPageDebug(activeTab);
+    const payload = buildDebugPayload({ settings, stats, activeTab, pageDebug });
+    await navigator.clipboard.writeText(payload);
+  }
+
   function markDirty() {
     isDirty = true;
     applyButton.disabled = false;
@@ -331,7 +448,8 @@
       enableBlockPeopleYouMayKnow: blockPeopleYouMayKnowInput.checked,
       enableBlockFollowPosts: blockFollowPostsInput.checked,
       enableBlockJoinPosts: blockJoinPostsInput.checked,
-      enableGoDirectlyToFeeds: goDirectlyToFeedsInput.checked
+      enableGoDirectlyToFeeds: goDirectlyToFeedsInput.checked,
+      groupFeedDefaultSort: String(groupFeedDefaultSortInput?.value || DEFAULT_SETTINGS.groupFeedDefaultSort)
     };
   }
 
@@ -393,6 +511,9 @@
     blockFollowPostsInput.checked = stored.enableBlockFollowPosts !== false;
     blockJoinPostsInput.checked = stored.enableBlockJoinPosts !== false;
     goDirectlyToFeedsInput.checked = stored.enableGoDirectlyToFeeds === true;
+    if (groupFeedDefaultSortInput) {
+      groupFeedDefaultSortInput.value = String(stored.groupFeedDefaultSort || DEFAULT_SETTINGS.groupFeedDefaultSort);
+    }
     syncDependentToggles();
   }
 
@@ -468,8 +589,13 @@
     blockPeopleYouMayKnowInput,
     blockFollowPostsInput,
     blockJoinPostsInput,
-    goDirectlyToFeedsInput
+    goDirectlyToFeedsInput,
+    groupFeedDefaultSortInput
   ].forEach((input) => {
+    if (!input) {
+      return;
+    }
+
     input.addEventListener("change", () => {
       if (input === feedFilterInput) {
         syncDependentToggles();
@@ -510,6 +636,14 @@
       resetStats()
         .then(() => showStatus("Activity stats reset.", "success"))
         .catch(() => showStatus("Could not reset activity stats.", "error"));
+    });
+  }
+
+  if (copyDebugButton) {
+    copyDebugButton.addEventListener("click", () => {
+      copyDebugInformation()
+        .then(() => showStatus("Debug information copied.", "success"))
+        .catch(() => showStatus("Could not copy debug information.", "error"));
     });
   }
 

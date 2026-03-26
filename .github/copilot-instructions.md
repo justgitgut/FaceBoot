@@ -32,3 +32,21 @@
 - Before changing notification or comment automation behavior, review [docs/comment-automation-notes.md](../docs/comment-automation-notes.md) and [docs/regression-checklist.md](../docs/regression-checklist.md).
 - After changing those paths, explicitly validate the notification navigation checks and related regression checklist items.
 - If you discover a new failure mode, update the notes and checklist in the same change.
+
+## Response Style
+
+- Be terse. No step-by-step explanation unless asked. No restating the task. Prefer final artifact over discussion.
+
+**Debugging:** Root cause (1 sentence) + Fix (1 sentence) + unified diff only. No alternatives unless confidence is low.
+
+**Routine code edits:** Unified diff only. No prose, no markdown fences, no reasoning.
+
+**New function/component:** Code only. No intro, no explanation, no comments unless essential.
+
+**Refactoring:** 3 bullets max summary + unified diff only.
+
+**Design/architecture questions:** ≤3 options. Each: approach / pros / cons / when. No intro, no conclusion. Total ≤200 words.
+
+**Code review:** Critical issues + likely bugs + minimal fixes. ≤6 bullets. No praise. No restating the code.
+
+**Analysis:** Root cause + exact fix + patch. ≤8 lines of explanation total.

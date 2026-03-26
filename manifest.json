@@ -1,8 +1,8 @@
 ﻿{
   "manifest_version": 3,
   "name": "Faceberg",
-  "version": "1.1.0",
-  "description": "Hide Facebook feed clutter, expand posts and comment threads, and optionally reduce disruptive tab refreshes.",
+  "version": "1.2.1",
+  "description": "Declutter Facebook by hiding feed clutter, expanding visible content, and optionally reducing tab-refresh disruptions.",
   "permissions": ["storage", "tabs", "scripting"],
   "host_permissions": [
     "*://www.facebook.com/*",

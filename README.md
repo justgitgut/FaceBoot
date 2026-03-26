@@ -4,13 +4,14 @@
 
 # Faceberg
 
-Chrome extension that declutters your Facebook feed, auto-expands posts and visible comment threads, keeps supported feed and group URLs chronological, and offers optional anti-refresh protection.
+Chrome extension that declutters your Facebook feed, auto-expands posts and visible comment threads, keeps the main feed and supported group feeds sorted predictably, and offers optional anti-refresh protection.
 
 - Hides Reels, Stories, sponsored posts, People You May Know, and Follow/Join feed cards.
 - Auto-expands truncated posts and visible comment/reply threads.
-- Switches the active post dialog to `All comments` before expanding visible comment threads.
+- Switches the active post dialog, direct post page, or supported media comment surface to `All comments` before expanding visible comment threads.
 - Blocks Facebook's forced tab reload when you return to the page.
 - Optionally lands you directly on the All Feed view with chronological sorting when opening Facebook.
+- Adds a popup action to copy extension debug information for troubleshooting.
 
 ## Install (Developer Mode)
 
@@ -46,11 +47,12 @@ Chrome extension that declutters your Facebook feed, auto-expands posts and visi
 	- Hide Join posts
 	- Auto-expand long posts
 	- Auto-expand comments
+	- Choose the default root group feed sort
 5. Click **Apply** to save and refresh Facebook tabs.
 6. If **Go directly to feeds on activation** is enabled, Apply will open Facebook tabs on:
 	- `https://www.facebook.com/?filter=all&sk=h_chr&sorting_setting=CHRONOLOGICAL`
 
-When you open a root group page such as `https://www.facebook.com/groups/<group-id>`, Faceberg also appends `sorting_setting=CHRONOLOGICAL` to the URL.
+When you open a root group page such as `https://www.facebook.com/groups/<group-id>` or `https://www.facebook.com/groups/<group-id>/`, Faceberg looks for the in-page group feed sorter and switches it to the configured default sort (`Recent activity`, `New posts`, or `Most relevant`). This works on direct loads and SPA navigation back to the root group feed.
 
 Note: anti-refresh protection is off by default and should be treated as an optional compatibility feature.
 
@@ -63,12 +65,13 @@ The extension auto-refreshes open Facebook tabs on install/update so filters app
 - Auto-click behavior is scoped to visible post/dialog contexts. You can tune the matching patterns in `content.js`.
 - The extension stores settings and aggregate counters locally and does not send Facebook data to external servers.
 - Session counters reset once per browser startup or extension restart; they do not reset on ordinary Facebook page loads.
+- The Activity tab includes `Copy Debug Information`, which copies extension version, active Facebook tab info, saved settings, activity stats, and page-debug extraction hints to the clipboard.
 
 ## How It Works
 
 - `injected.js`: runs in page context and blocks common refresh triggers (`location.reload`, string-based timer refresh calls, meta refresh tags, and resume lifecycle events that try to refresh when a background tab becomes active again).
-- `content.js`: observes the feed and post dialogs, normalizes supported Facebook feed/group URLs, hides unwanted feed content, expands posts, and coordinates modal comment automation.
-- `popup.html` + `popup.js`: UI and storage-backed settings for feature toggles, grouped activity stats, period switching, and saved-time estimates.
+- `content.js`: observes the feed and post dialogs, keeps the main feed and supported root group feeds in the intended order, hides unwanted feed content, expands posts, and coordinates comment automation across dialogs, direct posts, and supported media surfaces.
+- `popup.html` + `popup.js`: UI and storage-backed settings for feature toggles, grouped activity stats, period switching, saved-time estimates, and debug-information export.
 - `manifest.json`: MV3 config and script registration.
 
 ## Automation Boundary
@@ -76,7 +79,7 @@ The extension auto-refreshes open Facebook tabs on install/update so filters app
 - Feed cleanup removes unwanted content from the DOM.
 - Post expansion clicks visible `See more`-style controls.
 - Comment automation remains scoped to the current post context.
-- In already-open post dialogs, the extension opens the comment-ordering popup for the active post, selects `All comments`, and then expands visible comment/reply controls.
+- In already-open post dialogs, direct post pages, and supported media comment surfaces, the extension resolves the active sorter, selects `All comments`, and then expands visible comment/reply controls.
 - Feed cleanup and post expansion still do not open random posts or unrelated menus.
 
 See [docs/architecture-v2.md](docs/architecture-v2.md) for the current architecture boundary.

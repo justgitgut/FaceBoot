@@ -6,7 +6,7 @@ Faceberg is scoped to three stable behaviors:
 
 1. Filter unwanted Facebook feed content by removing it from the DOM.
 2. Expand truncated post bodies.
-3. Normalize supported Facebook feed and root-group URLs to chronological sorting.
+3. Keep supported Facebook feed and root-group feeds on the intended sort mode.
 4. Expand visible comment and reply threads inside an already-open post context.
 
 ## Active Boundaries
@@ -37,8 +37,12 @@ Faceberg is scoped to three stable behaviors:
 - Reels are handled only through a separate active-reel resolver that must identify
   one visible reel comment surface without falling back into older dialogs or broad
   document scans.
+- Resolves one active comment surface at a time and never shares execution between feed dialogs, direct posts, media surfaces, and reel surfaces.
 - On already-open post dialogs, opens the Facebook comment-ordering popup for the active post only.
+- On direct post and supported media surfaces, resolves the current sorter inside that surface only.
+- Uses anchored popup matching and short watcher-based follow-up passes to wait for spinner-loaded sorter menus without reopening unrelated UI.
 - Selects `All comments` before expanding visible comment/reply controls.
+- Treats exact `View all N replies` controls as reply-summary expanders so reply fallback matching can recover when Facebook changes wrapper markup.
 - Expands visible comment/reply controls such as summary and load-more actions.
 - Does not interact with unrelated menus or other posts.
 
@@ -55,7 +59,7 @@ Faceberg is scoped to three stable behaviors:
 
 - Redirects the optional feed landing page to:
   - `https://www.facebook.com/?filter=all&sk=h_chr&sorting_setting=CHRONOLOGICAL`
-- Appends `sorting_setting=CHRONOLOGICAL` to root group URLs such as `/groups/<id>`.
+- On root group feeds such as `/groups/<id>` or `/groups/<id>/`, resolves the in-page group feed sorter and applies the configured default sort instead of rewriting the URL.
 - Uses in-place URL normalization for SPA navigation instead of forcing a full reload.
 
 ## Explicit Non-Goals
@@ -81,6 +85,7 @@ If a behavior requires broad popup steering, React internals, or synthetic recov
 - Allowing `document`-level comment automation to search the feed for any plausible surface.
 - Letting watcher callbacks rerun against the stale dialog that originally created the watcher.
 - Counting a filter-toggle click as success without verifying that the popup actually opened.
+- Letting a sorter popup watcher keep tracking a stale popup after Facebook replaces the menu node during hydration.
 - Reopening old post dialogs when a photo/media viewer appears without comments yet.
 - Resolving a reel comment surface unless one active reel root clearly outranks all other visible candidates.
 - Permanently blacklisting a first-post `See more` button after one early synthetic click during startup hydration.

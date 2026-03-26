@@ -3,11 +3,9 @@
 
   const FEEDS_URL = "https://www.facebook.com/?filter=all&sk=h_chr&sorting_setting=CHRONOLOGICAL";
   const DEFAULT_SETTINGS = {
-    /* Keep this in sync with content.js. If the background default diverges,
-       Facebook tabs can remain discardable and Chrome may reload them after a
-       long idle period even though the content runtime assumes protection is on. */
-    enableAntiRefresh: true,
-    enableGoDirectlyToFeeds: false
+    enableAntiRefresh: false,
+    enableGoDirectlyToFeeds: false,
+    groupFeedDefaultSort: "new posts"
   };
   const FACEBOOK_URL_PATTERNS = [
     "*://www.facebook.com/*",

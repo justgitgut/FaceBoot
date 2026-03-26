@@ -15,9 +15,10 @@ Reels use a separate active-surface resolver. They are not part of the generic d
 The intended order is:
 
 1. Resolve the active comment surface narrowly.
-2. Switch the sorter to `All comments`.
-3. Wait for DOM updates.
-4. Expand visible comment/reply summary and load-more controls.
+2. Open the sorter toggle when present.
+3. Switch the sorter to `All comments`.
+4. Wait for DOM updates.
+5. Expand visible comment/reply summary and load-more controls.
 
 ## Surface Resolution Rules
 
@@ -47,11 +48,12 @@ The intended order is:
 ## Filter Rules
 
 - The filter must be switched before reply expansion is attempted.
-- A filter-toggle click must not count as success unless one of these becomes true:
-  - `aria-expanded="true"`
-  - the visible label changes to `All comments`
-  - the comment-ordering menu is actually detected
+- Sorter opening is dispatch-first: the opener sends one click attempt to the resolved toggle target, then a short delayed follow-up verifies whether the popup actually opened.
+- The delayed follow-up only acts when the toggle reads open (`aria-expanded="true"`). If Facebook never flips that state, the sorter will not be retried aggressively.
 - Menu item selection should stay narrowly targeted to the active popup.
+- Popup resolution must stay anchored to the active sorter toggle; visible menus elsewhere on the page are not valid fallbacks.
+- Facebook can replace the sorter popup node while the menu is hydrating. Watchers must re-resolve the active popup instead of holding onto the first node they saw.
+- Feed dialogs can select immediately from an already-open loaded popup, while direct post and media surfaces may need a short loading watcher when Facebook shows a spinner first.
 - Any filter-change stat increment must receive the runtime `deps` object through both the immediate-selection and delayed-retry paths; otherwise the UI can switch correctly while the counter stays at zero.
 
 ## Expansion Rules
@@ -59,29 +61,27 @@ The intended order is:
 - Expansion should target summary/load-more/reply controls only.
 - Do not auto-click broad primary comment openers from the feed.
 - Reply expansion often requires a follow-up pass after the filter switch settles.
+- Exact `View all N replies` labels should be treated as reply-summary controls even when Facebook changes surrounding wrappers.
+- Direct permalink dialogs can auto-focus the empty comment composer (`Comment as ...`) without any user input. That empty focused composer must not suppress reply expansion; only real typed composer content should block automation.
 
 ## Watcher Rules
 
 - Mutation watchers are necessary because sorting and expansion render asynchronously.
-- Follow-up passes must resolve from the current document state, not the stale dialog that created the watcher.
+- The main expansion follow-up still reruns from `document`, so stale-surface regressions remain a risk when dialog resolution broadens.
 - When a newly added dialog appears, rerun automation from that dialog root first.
-- Watcher callbacks and delayed retry timers must honor the same notification-suppression state as the main automation loop; otherwise stale follow-up passes can still click old surfaces after a notification interaction starts.
 
 ## Notification Navigation Rules
 
-- While the notifications surface is open, automation should do nothing.
-- A click inside the notifications surface should start a temporary suppression window so Facebook can finish opening the target post without synthetic interference.
-- If that click causes a URL change, extend the suppression briefly across the transition.
-- Direct-post handling must not trust the URL alone during notification navigation; the destination DOM must actually match the target post before automation resumes.
-- Never auto-click generic primary comment openers during notification-driven navigation. They can route through Facebook navigation handlers and reopen the wrong post or land on the parent group feed.
+- The current working code does not have a dedicated notification-suppression layer in `content.js` or `content-comments.js`.
+- Notification safety currently relies on narrow dialog selection, direct media/viewer checks, and avoiding broad feed-level comment opener clicks.
+- If notification regressions reappear, treat them as structural dialog-resolution bugs first; do not assume a suppression window exists.
 
 ## Things To Avoid
 
 - Avoid `document`-level fallback into feed surfaces for comment automation.
 - Avoid falling back from a topmost media viewer into older dialogs.
-- Avoid letting notification interactions share execution with normal feed/comment automation.
-- Avoid assuming the main `runAll()` suppression is sufficient; delayed retries and watcher callbacks must be suppressed too.
-- Avoid counting synthetic clicks as success without verifying resulting UI state.
+- Avoid counting menu-item activation success before the actual `All comments` row is clicked.
+- Avoid anchoring sorter-menu follow-up logic to a popup node that Facebook is free to replace during loading.
 - Avoid changing dialog resolution heuristics without rerunning the full regression checklist.
 - Avoid removing the comments that explain why feed/document fallbacks are restricted.
 
@@ -101,3 +101,5 @@ After touching comment automation, verify all of the following:
 10. `Filter changes` increments only when the sorter actually transitions to `All comments`.
 11. Opening notifications does not cause random posts, stacked post dialogs, or parent group feeds to open.
 12. If the same notification is opened repeatedly, the first click behaves the same as later clicks; there is no stale-first-click misfire.
+13. A direct post or media sorter that first opens with a spinner settles onto the same active popup and selects `All comments` without flickering.
+14. Feed dialogs with an already-open loaded sorter popup select `All comments` immediately instead of waiting through the loading watcher path.

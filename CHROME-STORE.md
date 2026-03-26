@@ -57,10 +57,13 @@ It creates a versioned zip in `dist/` with the extension files at the archive ro
 2. Verify the popup loads and settings persist.
 3. Verify settings apply to already-open Facebook tabs.
 4. Verify post expansion in English, French, and Spanish.
-5. Verify comment expansion and comment sort switching.
-6. Verify uninstall removes stored settings and counters.
+5. Verify comment expansion and comment sort switching on dialogs, direct posts, and supported media surfaces.
+6. Verify the selected default group sort applies on root group feed pages during direct loads and SPA navigation.
+7. Verify the popup Activity tab updates local counters and Copy Debug Information writes a clipboard payload.
+8. Verify uninstall removes stored settings and counters.
 
 ## Notes for the publisher
 
 - A GitHub Pages-ready policy page now exists at [docs/privacy/index.html](docs/privacy/index.html). If this repository is published through GitHub Pages from the `docs/` folder, the privacy-policy URL pattern will be `https://<username>.github.io/<repo>/privacy/`.
 - If you want smoother review, keep the store description tightly aligned to the actual behavior in the code and avoid claims like “block all ads” or “works forever” because Facebook markup changes frequently.
+- Keep listing language aligned with the current boundary: Faceberg modifies only the Facebook web UI, stores data locally, applies root-group sort preferences inside Facebook's existing UI, and exposes popup troubleshooting data only when the user explicitly copies it.

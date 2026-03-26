@@ -28,19 +28,22 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 
 1. Open a direct post/permalink page.
 2. Verify visible comment-summary, load-more-comment, and reply-expander controls are expanded.
+3. If the page initially opens the sorter with a loading spinner, confirm the popup settles once and does not flicker while Faceberg waits for `All comments`.
 3. Open a post dialog from the feed.
 4. Verify the comment-ordering popup opens only for the active dialog.
-5. Confirm `All comments` becomes the selected option in the dialog.
-6. Confirm `Filter changes` increments by 1 when Faceberg actually switches the sorter away from `Most relevant` or `Newest`.
-7. Verify visible comment/reply expansion works after sorting changes.
-8. Confirm no unrelated post or menu is opened.
-8. Open a `/reel/` page or Reels route with one clearly visible active reel.
-9. Verify only the active reel comment surface is targeted.
-10. Confirm `All comments` becomes the selected option when the reel sorter is present.
-11. Confirm `Filter changes` increments only when the reel sorter actually switches.
-12. Verify visible reel comment/reply expansion works after sorting changes.
-13. Confirm no older feed/dialog post reopens while using the reel surface.
-14. If multiple reel candidates are visible, confirm automation prefers doing nothing over opening the wrong surface.
+5. Confirm the sorter popup opens automatically when Faceberg can resolve the toggle target.
+6. Confirm `All comments` becomes the selected option in the dialog.
+7. Confirm `Filter changes` increments by 1 when Faceberg actually switches the sorter away from `Most relevant` or `Newest`.
+8. Verify visible comment/reply expansion works after sorting changes.
+9. Confirm no unrelated post or menu is opened.
+10. Confirm exact `View all N replies` controls expand when visible.
+11. Open a `/reel/` page or Reels route with one clearly visible active reel.
+12. Verify only the active reel comment surface is targeted.
+13. Confirm `All comments` becomes the selected option when the reel sorter is present.
+14. Confirm `Filter changes` increments only when the reel sorter actually switches.
+15. Verify visible reel comment/reply expansion works after sorting changes.
+16. Confirm no older feed/dialog post reopens while using the reel surface.
+17. If multiple reel candidates are visible, confirm automation prefers doing nothing over opening the wrong surface.
 
 ## Media Viewer Checks
 
@@ -75,6 +78,8 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 
 ## Notification Navigation Checks
 
+These checks remain important, but the current code does not have a dedicated notification-suppression window. Failures here usually indicate dialog-resolution or stale-surface regressions.
+
 1. Open the notifications surface from the main Facebook UI.
 2. Click a notification that targets a normal feed post.
 3. Confirm the intended post opens and no unrelated/random post opens instead.
@@ -92,7 +97,9 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 2. Confirm redirected Facebook tabs open on:
    - `https://www.facebook.com/?filter=all&sk=h_chr&sorting_setting=CHRONOLOGICAL`
 3. Open a root group page such as `https://www.facebook.com/groups/<id>`.
-4. Confirm the URL gains `sorting_setting=CHRONOLOGICAL` without navigating to a different page.
+4. Set **Default group sort** in the popup to a non-default option such as `Most relevant` or `Recent activity` and apply settings.
+5. Confirm Faceberg finds the in-page group feed sorter and switches it to the configured default sort without navigating away.
+6. Navigate to the same root group feed through Facebook SPA navigation and confirm the sorter still settles on the configured default sort.
 
 ## Anti-Refresh Checks
 
@@ -109,6 +116,7 @@ Use this checklist after changing feed cleanup, post expansion, comment expansio
 3. Refresh the Facebook page and confirm `This Session` is not wiped by that page load.
 4. Switch to `All Time` and confirm the totals are at least as large as `This Session`.
 5. Use `Reset` and confirm totals clear and the tracking date updates.
+6. Use `Copy Debug Information` and confirm the clipboard payload includes extension version, active Facebook tab details, saved settings, current stats, and page-debug extraction hints.
 
 ## Acceptance Criteria
 

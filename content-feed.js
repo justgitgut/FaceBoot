@@ -13,22 +13,12 @@
   const {
     normalizeText,
     hasPostActionControl,
-    isVisible
+    isVisible,
+    getRuntimeSettings,
+    queueRuntimeStatIncrement
   } = contentUtils;
 
   const removedFeedElements = new WeakSet();
-
-  function getSettings(deps) {
-    return typeof deps?.getSettings === "function"
-      ? deps.getSettings()
-      : deps?.settings;
-  }
-
-  function queueStatIncrement(deps, statKey, delta = 1) {
-    if (typeof deps?.queueStatIncrement === "function") {
-      deps.queueStatIncrement(statKey, delta);
-    }
-  }
 
   function getEnabledPostLabels(settings) {
     const labels = [];
@@ -94,7 +84,7 @@
     removedFeedElements.add(target);
 
     if (statKey) {
-      queueStatIncrement(deps, statKey);
+      queueRuntimeStatIncrement(deps, statKey);
     }
 
     target.remove();
@@ -246,7 +236,7 @@
   }
 
   function hideReelsContainers(root = document, deps = {}) {
-    const settings = getSettings(deps);
+    const settings = getRuntimeSettings(deps);
     if (!settings?.enableFeedFilter || !settings?.enableBlockReels) {
       return;
     }
@@ -281,7 +271,7 @@
   }
 
   function hideBlockedLabelContainers(root = document, deps = {}) {
-    const settings = getSettings(deps);
+    const settings = getRuntimeSettings(deps);
     if (!settings?.enableFeedFilter) {
       return;
     }
@@ -344,7 +334,7 @@
   }
 
   function hideStoriesContainers(root = document, deps = {}) {
-    const settings = getSettings(deps);
+    const settings = getRuntimeSettings(deps);
     if (!settings?.enableFeedFilter) {
       return;
     }
@@ -379,7 +369,7 @@
   }
 
   function hidePeopleYouMayKnow(root = document, deps = {}) {
-    const settings = getSettings(deps);
+    const settings = getRuntimeSettings(deps);
     if (!settings?.enableFeedFilter || !settings?.enableBlockPeopleYouMayKnow) {
       return;
     }
@@ -405,7 +395,7 @@
   }
 
   function hideSidebarSponsored(root = document, deps = {}) {
-    const settings = getSettings(deps);
+    const settings = getRuntimeSettings(deps);
     if (!settings?.enableFeedFilter) {
       return;
     }
